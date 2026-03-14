@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>LexCRM — Gestão Jurídica</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+<!-- Cloudinary usado no lugar do Firebase Storage (gratuito, sem cartão) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0f;--bg2:#111118;--bgc:#16161f;--bgh:#1e1e2a;
+  --border:#2a2a3a;--borderl:#333348;
+  --gold:#c9a84c;--goldl:#e4c97e;--goldd:#7a6230;
+  --text:#f0ede8;--text2:#9896a8;--textm:#5c5a6e;
+  --green:#5ecfa0;--blue:#7ab8d8;--red:#e07a88;--orange:#d4a06a;
+  --sw:260px;--r:10px;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.6;min-height:100vh}
+h1,h2,h3,h4{font-family:'Cormorant Garamond',serif;font-weight:600}
+input,select,textarea,button{font-family:'DM Sans',sans-serif;font-size:14px}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--borderl);border-radius:3px}
+
+/* AUTH */
+#auth-page{min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 20% 50%,rgba(201,168,76,.06),transparent 60%),radial-gradient(ellipse at 80% 20%,rgba(74,127,165,.04),transparent 50%)}
+.auth-card{background:var(--bgc);border:1px solid var(--border);border-radius:16px;padding:48px 40px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.auth-logo{text-align:center;margin-bottom:32px}
+.auth-logo h1{font-size:2rem;color:var(--gold);display:flex;align-items:center;justify-content:center;gap:10px}
+.auth-logo p{color:var(--text2);font-size:12px;letter-spacing:.15em;text-transform:uppercase;margin-top:4px}
+
+/* PENDING PAGE */
+#pending-page{min-height:100vh;display:none;align-items:center;justify-content:center;background:var(--bg)}
+.pending-card{background:var(--bgc);border:1px solid var(--border);border-radius:16px;padding:48px 40px;width:100%;max-width:480px;text-align:center}
+.pending-card h2{color:var(--gold);font-size:1.8rem;margin-bottom:12px}
+.pending-card p{color:var(--text2);font-size:14px;line-height:1.7;margin-bottom:8px}
+
+/* APP */
+#app{display:none;min-height:100vh}
+.sidebar{width:var(--sw);background:var(--bg2);border-right:1px solid var(--border);position:fixed;top:0;left:0;height:100vh;display:flex;flex-direction:column;z-index:100}
+.sidebar-logo{padding:28px 24px 20px;border-bottom:1px solid var(--border)}
+.sidebar-logo h2{font-size:1.4rem;color:var(--gold);display:flex;align-items:center;gap:8px}
+.sidebar-logo span{font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textm);letter-spacing:.2em;text-transform:uppercase}
+.sidebar-nav{flex:1;padding:16px 12px;overflow-y:auto}
+.nav-section{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--textm);padding:8px 12px 4px;margin-top:8px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:var(--text2);cursor:pointer;font-size:13.5px;transition:all .15s;margin-bottom:2px;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{background:var(--bgh);color:var(--text)}
+.nav-item.active{background:linear-gradient(135deg,rgba(201,168,76,.15),rgba(201,168,76,.05));color:var(--goldl);border:1px solid rgba(201,168,76,.2)}
+.sidebar-footer{padding:16px 12px;border-top:1px solid var(--border)}
+.user-row{display:flex;align-items:center;gap:10px;padding:8px 12px;margin-bottom:6px}
+.avatar{width:32px;height:32px;background:linear-gradient(135deg,var(--goldd),var(--gold));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--bg);flex-shrink:0}
+.user-email{font-size:12px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.admin-badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;background:rgba(201,168,76,.2);color:var(--goldl);border:1px solid rgba(201,168,76,.3);margin-left:6px;letter-spacing:.05em}
+.main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column}
+
+/* PAGES */
+.page{display:none;flex-direction:column;min-height:100vh}
+.page.active{display:flex}
+.page-hd{padding:28px 32px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.page-hd h1{font-size:2rem;line-height:1}
+.page-hd p{color:var(--text2);font-size:13px;margin-top:4px}
+.page-body{padding:24px 32px 32px}
+.hd-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+/* CARDS */
+.card{background:var(--bgc);border:1px solid var(--border);border-radius:var(--r);padding:20px}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(2,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}
+.stat-card{background:var(--bgc);border:1px solid var(--border);border-radius:var(--r);padding:20px 24px;transition:border-color .2s}
+.stat-card:hover{border-color:var(--borderl)}
+.stat-label{font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--textm);margin-bottom:6px}
+.stat-val{font-family:'Cormorant Garamond',serif;font-size:2.2rem;font-weight:600;line-height:1}
+.stat-sub{font-size:12px;color:var(--text2);margin-top:4px}
+.gold{color:var(--gold)}.green{color:var(--green)}.blue{color:var(--blue)}.red{color:var(--red)}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;border:none;white-space:nowrap}
+.btn-p{background:linear-gradient(135deg,var(--gold),var(--goldd));color:var(--bg);font-weight:600}
+.btn-p:hover{filter:brightness(1.1);transform:translateY(-1px)}
+.btn-s{background:var(--bgh);color:var(--text);border:1px solid var(--borderl)}
+.btn-s:hover{border-color:var(--goldd);color:var(--goldl)}
+.btn-g{background:transparent;color:var(--text2);padding:7px 10px}
+.btn-g:hover{background:var(--bgh);color:var(--text)}
+.btn-success{background:rgba(61,140,110,.2);color:var(--green);border:1px solid rgba(61,140,110,.3)}
+.btn-success:hover{background:rgba(61,140,110,.35)}
+.btn-d{background:rgba(140,61,74,.2);color:var(--red);border:1px solid rgba(140,61,74,.3)}
+.btn-d:hover{background:rgba(140,61,74,.35)}
+.btn-ic{padding:7px;border-radius:8px}
+.btn-sm{padding:6px 12px;font-size:12px}
+.w100{width:100%;justify-content:center;padding:12px}
+
+/* FORMS */
+.fg{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.fl{font-size:12px;font-weight:500;color:var(--text2);letter-spacing:.05em}
+.fi,.fs,.fta{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);outline:none;transition:border-color .15s;width:100%}
+.fi:focus,.fs:focus,.fta:focus{border-color:var(--goldd);box-shadow:0 0 0 3px rgba(201,168,76,.1)}
+.fs option{background:var(--bgc)}
+.fta{resize:vertical;min-height:80px}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* TABLE */
+.tw{overflow-x:auto;border-radius:var(--r);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse}
+th{background:var(--bg2);padding:11px 16px;text-align:left;font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--textm);border-bottom:1px solid var(--border);white-space:nowrap;font-family:'DM Sans',sans-serif}
+td{padding:13px 16px;border-bottom:1px solid var(--border);font-size:13.5px;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--bgh)}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap;cursor:default}
+.bg{background:rgba(61,140,110,.2);color:var(--green);border:1px solid rgba(61,140,110,.3)}
+.bb{background:rgba(74,127,165,.2);color:var(--blue);border:1px solid rgba(74,127,165,.3)}
+.by{background:rgba(201,168,76,.2);color:var(--goldl);border:1px solid rgba(201,168,76,.3)}
+.br{background:rgba(140,61,74,.2);color:var(--red);border:1px solid rgba(140,61,74,.3)}
+.bgr{background:rgba(92,90,110,.3);color:var(--text2);border:1px solid var(--border)}
+.bo{background:rgba(160,104,48,.2);color:var(--orange);border:1px solid rgba(160,104,48,.3)}
+
+/* MODAL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .15s}
+.modal{background:var(--bgc);border:1px solid var(--borderl);border-radius:14px;width:100%;max-width:580px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.8);animation:slideUp .2s}
+.modal-lg{max-width:700px}
+.mhd{padding:24px 28px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.mhd h3{font-size:1.4rem}
+.mbody{padding:24px 28px}
+.mfoot{padding:16px 28px 24px;display:flex;gap:10px;justify-content:flex-end}
+
+/* SEARCH */
+.search{display:flex;align-items:center;gap:8px;background:var(--bgc);border:1px solid var(--border);border-radius:8px;padding:8px 14px}
+.search input{background:none;border:none;outline:none;color:var(--text);font-size:13px;min-width:200px}
+
+/* UPLOAD */
+.upload-area{border:2px dashed var(--borderl);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:all .2s;background:var(--bg2)}
+.upload-area:hover{border-color:var(--goldd);background:rgba(201,168,76,.05)}
+.upload-area.dragging{border-color:var(--gold);background:rgba(201,168,76,.1)}
+.file-item{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px}
+.file-item a{color:var(--goldl);text-decoration:none;font-size:13px;font-weight:500}
+.file-item a:hover{text-decoration:underline}
+.progress-bar{height:4px;background:var(--border);border-radius:2px;margin-top:8px;overflow:hidden}
+.progress-fill{height:100%;background:var(--gold);border-radius:2px;transition:width .3s}
+
+/* MISC */
+.empty{text-align:center;padding:60px 20px;color:var(--text2)}
+.empty .ic{font-size:2.5rem;color:var(--textm);margin-bottom:12px}
+.empty h3{font-size:1.1rem;margin-bottom:6px}
+.empty p{font-size:13px;color:var(--textm)}
+.divider{height:1px;background:var(--border);margin:16px 0}
+.alert{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px}
+.alert-e{background:rgba(140,61,74,.15);border:1px solid rgba(140,61,74,.3);color:var(--red)}
+.alert-s{background:rgba(61,140,110,.15);border:1px solid rgba(61,140,110,.3);color:var(--green)}
+.loading{display:flex;align-items:center;justify-content:center;min-height:200px;color:var(--textm);gap:8px}
+.spin{width:18px;height:18px;border:2px solid var(--borderl);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite}
+.sec-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.sec-title{font-family:'Cormorant Garamond',serif;font-size:1.3rem}
+.gold-line{display:block;width:28px;height:2px;background:linear-gradient(90deg,var(--gold),transparent);margin-top:3px}
+.flex{display:flex;align-items:center;gap:8px}
+.warn-bar{background:rgba(140,61,74,.12);border:1px solid rgba(140,61,74,.3);border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;color:var(--red);font-size:13px;font-weight:500}
+.date-u{color:var(--red);font-weight:500}
+.date-w{color:var(--orange);font-weight:500}
+.date-ok{color:var(--green)}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:768px){.sidebar{transform:translateX(-100%)}.main{margin-left:0}.g4{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:1fr 1fr}.g2{grid-template-columns:1fr}.page-body{padding:16px}.page-hd{padding:16px 16px 0}.frow{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- AUTH PAGE -->
+<div id="auth-page">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <h1>⚖️ LexCRM</h1>
+      <p>Sistema de Gestão Jurídica</p>
+    </div>
+    <div id="auth-alert"></div>
+    <div class="fg">
+      <label class="fl">E-mail</label>
+      <input class="fi" id="auth-email" type="email" placeholder="seu@email.com"/>
+    </div>
+    <div class="fg">
+      <label class="fl">Senha</label>
+      <input class="fi" id="auth-pass" type="password" placeholder="••••••••"/>
+    </div>
+    <div class="fg" id="auth-name-group" style="display:none">
+      <label class="fl">Nome completo</label>
+      <input class="fi" id="auth-name" placeholder="Dr. João Silva"/>
+    </div>
+    <div class="fg" id="auth-oab-group" style="display:none">
+      <label class="fl">OAB</label>
+      <input class="fi" id="auth-oab" placeholder="OAB/CE 00000"/>
+    </div>
+    <button class="btn btn-p w100" id="auth-btn" onclick="doAuth()">Entrar</button>
+    <div class="divider"></div>
+    <p style="text-align:center;font-size:13px;color:var(--text2)">
+      <span id="auth-switch-text">Não tem conta?</span>
+      <button onclick="toggleAuthMode()" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:13px;font-family:inherit;margin-left:4px" id="auth-switch-btn">Solicitar acesso</button>
+    </p>
+  </div>
+</div>
+
+<!-- PENDING PAGE -->
+<div id="pending-page">
+  <div class="pending-card">
+    <div style="font-size:3rem;margin-bottom:16px">⏳</div>
+    <h2>Aguardando aprovação</h2>
+    <p>Seu cadastro foi recebido com sucesso!</p>
+    <p>O administrador do sistema irá analisar sua solicitação em breve. Você receberá acesso assim que for aprovado.</p>
+    <div class="divider"></div>
+    <p style="font-size:12px;color:var(--textm)" id="pending-email-display"></p>
+    <button class="btn btn-s" style="margin-top:16px" onclick="doLogout()">Sair</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <h2>⚖️ LexCRM</h2>
+      <span>Gestão Jurídica</span>
+    </div>
+    <div class="sidebar-nav">
+      <button class="nav-item active" onclick="goTo('dashboard')" id="nav-dashboard">📊 Dashboard</button>
+      <div class="nav-section">Gestão</div>
+      <button class="nav-item" onclick="goTo('clientes')" id="nav-clientes">👥 Clientes</button>
+      <button class="nav-item" onclick="goTo('processos')" id="nav-processos">📁 Processos</button>
+      <button class="nav-item" onclick="goTo('documentos')" id="nav-documentos">📄 Documentos</button>
+      <div class="nav-section">Operacional</div>
+      <button class="nav-item" onclick="goTo('agenda')" id="nav-agenda">📅 Agenda & Prazos</button>
+      <button class="nav-item" onclick="goTo('financeiro')" id="nav-financeiro">💰 Financeiro</button>
+      <div class="nav-section">Análise</div>
+      <button class="nav-item" onclick="goTo('relatorios')" id="nav-relatorios">📈 Relatórios</button>
+      <div id="admin-nav-section" style="display:none">
+        <div class="nav-section">Administração</div>
+        <button class="nav-item" onclick="goTo('admin')" id="nav-admin">🛡️ Painel Admin</button>
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="user-row">
+        <div class="avatar" id="user-avatar">U</div>
+        <div style="overflow:hidden">
+          <div class="user-email" id="user-email-display"></div>
+          <span id="admin-badge-display" style="display:none" class="admin-badge">ADMIN</span>
+        </div>
+      </div>
+      <button class="nav-item" onclick="doLogout()" style="color:var(--red)">🚪 Sair</button>
+    </div>
+  </nav>
+
+  <div class="main">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-hd">
+        <div><h1>Dashboard</h1><p id="dash-date"></p></div>
+      </div>
+      <div class="page-body">
+        <div class="grid g4" style="margin-bottom:24px">
+          <div class="stat-card" style="cursor:pointer" onclick="goTo('clientes')"><div class="stat-label">👥 Clientes</div><div class="stat-val blue" id="ds-clientes">0</div><div class="stat-sub">cadastrados</div></div>
+          <div class="stat-card" style="cursor:pointer" onclick="goTo('processos')"><div class="stat-label">📁 Processos Ativos</div><div class="stat-val gold" id="ds-processos">0</div><div class="stat-sub" id="ds-proc-sub">de 0 total</div></div>
+          <div class="stat-card" style="cursor:pointer" onclick="goTo('agenda')"><div class="stat-label">⚠️ Prazos Urgentes</div><div class="stat-val" id="ds-prazos" style="color:var(--green)">0</div><div class="stat-sub">próximos 7 dias</div></div>
+          <div class="stat-card" style="cursor:pointer" onclick="goTo('financeiro')"><div class="stat-label">💵 A Receber</div><div class="stat-val green" id="ds-receber">R$ 0</div><div class="stat-sub" id="ds-rec-sub">recebido: R$ 0</div></div>
+        </div>
+        <div class="grid g2" style="margin-bottom:24px">
+          <div class="card">
+            <div class="sec-hd"><div><div class="sec-title">Próximos Prazos</div><span class="gold-line"></span></div><button class="btn btn-g btn-sm" onclick="goTo('agenda')">Ver todos →</button></div>
+            <div id="dash-prazos"><div class="empty"><p>Nenhum prazo próximo</p></div></div>
+          </div>
+          <div class="card">
+            <div class="sec-hd"><div><div class="sec-title">Processos por Área</div><span class="gold-line"></span></div></div>
+            <canvas id="chart-area" height="160"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <div class="sec-hd"><div><div class="sec-title">Clientes Recentes</div><span class="gold-line"></span></div><button class="btn btn-g btn-sm" onclick="goTo('clientes')">Ver todos →</button></div>
+          <div id="dash-clientes-table"><div class="empty"><p>Nenhum cliente ainda</p></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CLIENTES -->
+    <div class="page" id="page-clientes">
+      <div class="page-hd">
+        <div><h1>Clientes</h1><p id="clientes-sub"></p></div>
+        <div class="hd-actions">
+          <div class="search"><span>🔍</span><input id="search-clientes" placeholder="Buscar clientes..." oninput="renderClientes()"/></div>
+          <button class="btn btn-p" onclick="openModal('cliente')">+ Novo Cliente</button>
+        </div>
+      </div>
+      <div class="page-body"><div id="clientes-table"><div class="loading"><div class="spin"></div>Carregando...</div></div></div>
+    </div>
+
+    <!-- PROCESSOS -->
+    <div class="page" id="page-processos">
+      <div class="page-hd">
+        <div><h1>Processos</h1><p id="processos-sub"></p></div>
+        <div class="hd-actions">
+          <div class="search"><span>🔍</span><input id="search-processos" placeholder="Buscar processos..." oninput="renderProcessos()"/></div>
+          <select class="fs" style="width:auto" id="filter-proc-status" onchange="renderProcessos()">
+            <option value="">Todos os status</option>
+            <option>Em andamento</option><option>Ativo</option><option>Suspenso</option><option>Arquivado</option><option>Encerrado</option><option>Ganho</option><option>Perdido</option>
+          </select>
+          <button class="btn btn-p" onclick="openModal('processo')">+ Novo Processo</button>
+        </div>
+      </div>
+      <div class="page-body"><div id="processos-table"></div></div>
+    </div>
+
+    <!-- DOCUMENTOS -->
+    <div class="page" id="page-documentos">
+      <div class="page-hd">
+        <div><h1>Documentos</h1><p id="documentos-sub"></p></div>
+        <div class="hd-actions">
+          <div class="search"><span>🔍</span><input id="search-documentos" placeholder="Buscar documentos..." oninput="renderDocumentos()"/></div>
+          <button class="btn btn-p" onclick="openModal('documento')">+ Novo Documento</button>
+        </div>
+      </div>
+      <div class="page-body"><div id="documentos-table"></div></div>
+    </div>
+
+    <!-- AGENDA -->
+    <div class="page" id="page-agenda">
+      <div class="page-hd">
+        <div><h1>Agenda & Prazos</h1><p id="agenda-sub"></p></div>
+        <div class="hd-actions">
+          <div class="search"><span>🔍</span><input id="search-agenda" placeholder="Buscar eventos..." oninput="renderAgenda()"/></div>
+          <select class="fs" style="width:auto" id="filter-agenda-tipo" onchange="renderAgenda()">
+            <option value="">Todos os tipos</option>
+            <option>Audiência</option><option>Prazo processual</option><option>Reunião com cliente</option><option>Perícia</option><option>Protocolo</option><option>Despacho</option><option>Outro</option>
+          </select>
+          <select class="fs" style="width:auto" id="filter-agenda-status" onchange="renderAgenda()">
+            <option value="">Todos</option><option>Pendente</option><option>Concluído</option>
+          </select>
+          <button class="btn btn-p" onclick="openModal('evento')">+ Novo Evento</button>
+        </div>
+      </div>
+      <div class="page-body"><div id="agenda-warn"></div><div id="agenda-table"></div></div>
+    </div>
+
+    <!-- FINANCEIRO -->
+    <div class="page" id="page-financeiro">
+      <div class="page-hd">
+        <div><h1>Financeiro</h1><p>Honorários, receitas e despesas</p></div>
+        <div class="hd-actions">
+          <div class="search"><span>🔍</span><input id="search-fin" placeholder="Buscar lançamentos..." oninput="renderFinanceiro()"/></div>
+          <select class="fs" style="width:auto" id="filter-fin-tipo" onchange="renderFinanceiro()">
+            <option value="">Receitas e Despesas</option><option value="receita">Receitas</option><option value="despesa">Despesas</option>
+          </select>
+          <select class="fs" style="width:auto" id="filter-fin-status" onchange="renderFinanceiro()">
+            <option value="">Todos</option><option value="pago">Pago/Recebido</option><option value="pendente">Pendente</option>
+          </select>
+          <button class="btn btn-p" onclick="openModal('financeiro')">+ Novo Lançamento</button>
+        </div>
+      </div>
+      <div class="page-body">
+        <div class="grid g4" style="margin-bottom:24px">
+          <div class="stat-card"><div class="stat-label">📈 Receitas Recebidas</div><div class="stat-val green" id="fin-rec">R$ 0</div></div>
+          <div class="stat-card"><div class="stat-label">📉 Despesas Pagas</div><div class="stat-val red" id="fin-desp">R$ 0</div></div>
+          <div class="stat-card"><div class="stat-label">💵 A Receber</div><div class="stat-val gold" id="fin-arec">R$ 0</div></div>
+          <div class="stat-card"><div class="stat-label">💼 Saldo</div><div class="stat-val" id="fin-saldo">R$ 0</div></div>
+        </div>
+        <div id="financeiro-table"></div>
+      </div>
+    </div>
+
+    <!-- RELATORIOS -->
+    <div class="page" id="page-relatorios">
+      <div class="page-hd"><div><h1>Relatórios</h1><p>Visão geral do escritório</p></div></div>
+      <div class="page-body">
+        <div class="grid g4" style="margin-bottom:24px">
+          <div class="stat-card"><div class="stat-label">Total de Clientes</div><div class="stat-val blue" id="rel-cli">0</div></div>
+          <div class="stat-card"><div class="stat-label">Processos Ativos</div><div class="stat-val gold" id="rel-proc">0</div></div>
+          <div class="stat-card"><div class="stat-label">Processos Ganhos</div><div class="stat-val green" id="rel-ganhos">0</div></div>
+          <div class="stat-card"><div class="stat-label">Receita Total</div><div class="stat-val" style="font-size:1.4rem;color:var(--green)" id="rel-receita">R$ 0</div></div>
+        </div>
+        <div class="grid g2" style="margin-bottom:24px">
+          <div class="card"><div class="sec-title" style="margin-bottom:16px">Processos por Área</div><canvas id="chart-rel-area" height="200"></canvas></div>
+          <div class="card"><div class="sec-title" style="margin-bottom:16px">Status dos Processos</div><canvas id="chart-rel-status" height="200"></canvas></div>
+        </div>
+        <div class="card"><div class="sec-title" style="margin-bottom:16px">Receitas vs Despesas (mensal)</div><canvas id="chart-rel-fin" height="120"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ADMIN PANEL -->
+    <div class="page" id="page-admin">
+      <div class="page-hd">
+        <div><h1>🛡️ Painel Admin</h1><p>Gerencie os usuários do sistema</p></div>
+      </div>
+      <div class="page-body">
+        <div class="grid g3" style="margin-bottom:24px">
+          <div class="stat-card"><div class="stat-label">Total de Usuários</div><div class="stat-val blue" id="adm-total">0</div></div>
+          <div class="stat-card"><div class="stat-label">✅ Aprovados</div><div class="stat-val green" id="adm-aprovados">0</div></div>
+          <div class="stat-card"><div class="stat-label">⏳ Pendentes</div><div class="stat-val gold" id="adm-pendentes">0</div></div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px">
+          <div class="sec-hd"><div><div class="sec-title">Solicitações Pendentes</div><span class="gold-line"></span></div></div>
+          <div id="admin-pendentes-list"><div class="empty"><p>Nenhuma solicitação pendente</p></div></div>
+        </div>
+
+        <div class="card">
+          <div class="sec-hd"><div><div class="sec-title">Todos os Usuários</div><span class="gold-line"></span></div></div>
+          <div id="admin-users-list"><div class="loading"><div class="spin"></div>Carregando...</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="modal-container"></div>
+
+<script>
+// ============================================================
+// FIREBASE CONFIG
+// ============================================================
+const ADMIN_EMAIL = 'itamardevasconcelos90@gmail.com';
+
+firebase.initializeApp({
+  apiKey: "AIzaSyDHuESOnmEmfvaapJ-lkaRZAI1B0DCmkdg",
+  authDomain: "crm-advmelgaco.firebaseapp.com",
+  projectId: "crm-advmelgaco",
+  storageBucket: "crm-advmelgaco.firebasestorage.app",
+  messagingSenderId: "661761269238",
+  appId: "1:661761269238:web:494db0d149cca070507bd7"
+});
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// ============================================================
+// CLOUDINARY CONFIG — substitui Firebase Storage (grátis, sem cartão)
+// 1. Crie conta em https://cloudinary.com (grátis)
+// 2. No dashboard, copie seu "Cloud name"
+// 3. Vá em Settings > Upload > Add upload preset
+//    - Signing mode: "Unsigned"
+//    - Anote o nome do preset
+// 4. Substitua os valores abaixo:
+// ============================================================
+const CLOUDINARY_CLOUD_NAME = 'djztsoor';
+const CLOUDINARY_UPLOAD_PRESET = 'lexcrm_docs';
+
+let currentUser = null;
+let isAdmin = false;
+let DATA = { clientes:[], processos:[], eventos:[], financeiro:[], documentos:[] };
+let unsubs = [];
+let editingId = null;
+let authMode = 'login';
+let charts = {};
+
+// ===== AUTH =====
+function toggleAuthMode() {
+  authMode = authMode === 'login' ? 'register' : 'login';
+  document.getElementById('auth-btn').textContent = authMode === 'login' ? 'Entrar' : 'Solicitar Acesso';
+  document.getElementById('auth-switch-text').textContent = authMode === 'login' ? 'Não tem conta?' : 'Já tem conta?';
+  document.getElementById('auth-switch-btn').textContent = authMode === 'login' ? 'Solicitar acesso' : 'Fazer login';
+  document.getElementById('auth-name-group').style.display = authMode === 'register' ? 'flex' : 'none';
+  document.getElementById('auth-oab-group').style.display = authMode === 'register' ? 'flex' : 'none';
+  document.getElementById('auth-alert').innerHTML = '';
+}
+
+async function doAuth() {
+  const email = document.getElementById('auth-email').value.trim();
+  const pass = document.getElementById('auth-pass').value;
+  const name = document.getElementById('auth-name').value.trim();
+  const oab = document.getElementById('auth-oab').value.trim();
+  const alertEl = document.getElementById('auth-alert');
+  alertEl.innerHTML = '';
+  try {
+    if (authMode === 'login') {
+      await auth.signInWithEmailAndPassword(email, pass);
+    } else {
+      if (!name) { alertEl.innerHTML = '<div class="alert alert-e">Informe seu nome completo.</div>'; return; }
+      const cred = await auth.createUserWithEmailAndPassword(email, pass);
+      // Save user profile with pending status
+      await db.collection('usuarios').doc(cred.user.uid).set({
+        uid: cred.user.uid,
+        email: email,
+        nome: name,
+        oab: oab || '',
+        status: email === ADMIN_EMAIL ? 'aprovado' : 'pendente',
+        role: email === ADMIN_EMAIL ? 'admin' : 'user',
+        criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+  } catch(e) {
+    const msgs = {
+      'auth/user-not-found':'Usuário não encontrado.',
+      'auth/wrong-password':'Senha incorreta.',
+      'auth/email-already-in-use':'E-mail já em uso.',
+      'auth/weak-password':'Senha deve ter pelo menos 6 caracteres.',
+      'auth/invalid-email':'E-mail inválido.',
+      'auth/invalid-credential':'Credenciais inválidas.',
+    };
+    alertEl.innerHTML = `<div class="alert alert-e">${msgs[e.code]||'Erro ao autenticar.'}</div>`;
+  }
+}
+
+document.getElementById('auth-pass').addEventListener('keydown', e => { if(e.key==='Enter') doAuth(); });
+
+async function doLogout() {
+  unsubs.forEach(u=>u()); unsubs=[];
+  DATA = { clientes:[], processos:[], eventos:[], financeiro:[], documentos:[] };
+  await auth.signOut();
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('pending-page').style.display = 'none';
+  document.getElementById('auth-page').style.display = 'flex';
+}
+
+auth.onAuthStateChanged(async user => {
+  currentUser = user;
+  if (!user) {
+    document.getElementById('auth-page').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('pending-page').style.display = 'none';
+    return;
+  }
+
+  // Check user status in Firestore
+  try {
+    const userDoc = await db.collection('usuarios').doc(user.uid).get();
+    if (!userDoc.exists) {
+      // Admin auto-approve
+      if (user.email === ADMIN_EMAIL) {
+        await db.collection('usuarios').doc(user.uid).set({
+          uid: user.uid, email: user.email, nome: 'Administrador',
+          status: 'aprovado', role: 'admin',
+          criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        showApp(user);
+      } else {
+        showPending(user);
+      }
+      return;
+    }
+
+    const userData = userDoc.data();
+    if (userData.status === 'aprovado') {
+      showApp(user, userData);
+    } else if (userData.status === 'bloqueado') {
+      document.getElementById('auth-page').style.display = 'flex';
+      document.getElementById('auth-alert').innerHTML = '<div class="alert alert-e">Seu acesso foi bloqueado. Entre em contato com o administrador.</div>';
+      await auth.signOut();
+    } else {
+      showPending(user);
+    }
+  } catch(e) {
+    console.error(e);
+    showPending(user);
+  }
+});
+
+function showPending(user) {
+  document.getElementById('auth-page').style.display = 'none';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('pending-page').style.display = 'flex';
+  document.getElementById('pending-email-display').textContent = `Conta: ${user.email}`;
+}
+
+function showApp(user, userData) {
+  isAdmin = user.email === ADMIN_EMAIL || userData?.role === 'admin';
+  document.getElementById('auth-page').style.display = 'none';
+  document.getElementById('pending-page').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('user-email-display').textContent = user.email;
+  document.getElementById('user-avatar').textContent = user.email[0].toUpperCase();
+
+  if (isAdmin) {
+    document.getElementById('admin-nav-section').style.display = 'block';
+    document.getElementById('admin-badge-display').style.display = 'inline-flex';
+  }
+
+  initListeners();
+  setDashDate();
+}
+
+// ===== FIRESTORE =====
+function initListeners() {
+  const cols = ['clientes','processos','eventos','financeiro','documentos'];
+  cols.forEach(col => {
+    const u = db.collection(col)
+      .where('uid','==',currentUser.uid)
+      .orderBy('criadoEm','desc')
+      .onSnapshot(snap => {
+        DATA[col] = snap.docs.map(d=>({id:d.id,...d.data()}));
+        refreshAll();
+      }, () => {
+        db.collection(col).where('uid','==',currentUser.uid).onSnapshot(snap => {
+          DATA[col] = snap.docs.map(d=>({id:d.id,...d.data()}));
+          refreshAll();
+        });
+      });
+    unsubs.push(u);
+  });
+}
+
+async function saveDoc(col, data, id=null) {
+  const ts = firebase.firestore.FieldValue.serverTimestamp();
+  if (id) await db.collection(col).doc(id).update({...data, atualizadoEm:ts});
+  else await db.collection(col).add({...data, uid:currentUser.uid, criadoEm:ts, atualizadoEm:ts});
+}
+
+async function delDoc(col, id) { await db.collection(col).doc(id).delete(); }
+
+// ===== ADMIN FUNCTIONS =====
+async function loadAdminPanel() {
+  if (!isAdmin) return;
+  const snap = await db.collection('usuarios').orderBy('criadoEm','desc').get();
+  const users = snap.docs.map(d=>({id:d.id,...d.data()}));
+  const pendentes = users.filter(u=>u.status==='pendente');
+  const aprovados = users.filter(u=>u.status==='aprovado');
+
+  document.getElementById('adm-total').textContent = users.length;
+  document.getElementById('adm-aprovados').textContent = aprovados.length;
+  document.getElementById('adm-pendentes').textContent = pendentes.length;
+
+  // Pending list
+  const pendEl = document.getElementById('admin-pendentes-list');
+  if (!pendentes.length) {
+    pendEl.innerHTML = '<div class="empty" style="padding:30px 0"><p>Nenhuma solicitação pendente ✅</p></div>';
+  } else {
+    pendEl.innerHTML = pendentes.map(u=>`
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg2);border:1px solid rgba(201,168,76,.2);border-radius:10px;margin-bottom:8px">
+        <div>
+          <div style="font-weight:500;font-size:14px">${u.nome||u.email}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">${u.email} ${u.oab?'• '+u.oab:''}</div>
+        </div>
+        <div class="flex">
+          <button class="btn btn-success btn-sm" onclick="approveUser('${u.id}')">✅ Aprovar</button>
+          <button class="btn btn-d btn-sm" onclick="blockUser('${u.id}')">🚫 Recusar</button>
+        </div>
+      </div>`).join('');
+  }
+
+  // All users
+  const usersEl = document.getElementById('admin-users-list');
+  usersEl.innerHTML = `<div class="tw" style="border:none"><table><thead><tr><th>Nome</th><th>E-mail</th><th>OAB</th><th>Status</th><th>Ações</th></tr></thead><tbody>
+    ${users.map(u=>`<tr>
+      <td style="font-weight:500">${u.nome||'—'} ${u.role==='admin'?'<span class="admin-badge">ADMIN</span>':''}</td>
+      <td style="color:var(--text2)">${u.email}</td>
+      <td style="color:var(--text2)">${u.oab||'—'}</td>
+      <td><span class="badge ${u.status==='aprovado'?'bg':u.status==='pendente'?'by':'br'}">${u.status}</span></td>
+      <td><div class="flex">
+        ${u.status!=='aprovado'?`<button class="btn btn-success btn-sm" onclick="approveUser('${u.id}')">Aprovar</button>`:''}
+        ${u.status!=='bloqueado'&&u.email!==ADMIN_EMAIL?`<button class="btn btn-d btn-sm" onclick="blockUser('${u.id}')">Bloquear</button>`:''}
+      </div></td>
+    </tr>`).join('')}
+  </tbody></table></div>`;
+}
+
+async function approveUser(id) {
+  await db.collection('usuarios').doc(id).update({ status: 'aprovado' });
+  loadAdminPanel();
+}
+
+async function blockUser(id) {
+  if (confirm('Deseja bloquear este usuário?')) {
+    await db.collection('usuarios').doc(id).update({ status: 'bloqueado' });
+    loadAdminPanel();
+  }
+}
+
+// ===== NAVIGATION =====
+let currentPage = 'dashboard';
+function goTo(page) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  document.getElementById('nav-'+page)?.classList.add('active');
+  currentPage = page;
+  if (page==='relatorios') renderRelatorios();
+  if (page==='admin') loadAdminPanel();
+}
+
+function refreshAll() {
+  renderDashboard();
+  if (currentPage==='clientes') renderClientes();
+  if (currentPage==='processos') renderProcessos();
+  if (currentPage==='agenda') renderAgenda();
+  if (currentPage==='financeiro') renderFinanceiro();
+  if (currentPage==='documentos') renderDocumentos();
+  if (currentPage==='relatorios') renderRelatorios();
+}
+
+// ===== UTILS =====
+const brl = v => parseFloat(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const fmtDate = s => s ? new Date(s+'T12:00:00').toLocaleDateString('pt-BR') : '—';
+function dateClass(s) {
+  if (!s) return '';
+  const diff = (new Date(s+'T12:00:00') - new Date()) / 86400000;
+  if (diff < 0||diff<=3) return 'date-u';
+  if (diff<=7) return 'date-w';
+  return 'date-ok';
+}
+function statusBadge(s) {
+  const map={'Em andamento':'bb','Ativo':'bg','Suspenso':'by','Arquivado':'bgr','Encerrado':'bgr','Ganho':'bg','Perdido':'br'};
+  return `<span class="badge ${map[s]||'bgr'}">${s||'—'}</span>`;
+}
+function destroyChart(id) { if(charts[id]){charts[id].destroy();delete charts[id];} }
+function setDashDate() {
+  document.getElementById('dash-date').textContent = new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+}
+
+// ===== DASHBOARD =====
+function renderDashboard() {
+  const ativos=DATA.processos.filter(p=>p.status==='Ativo'||p.status==='Em andamento');
+  const aReceber=DATA.financeiro.filter(f=>f.tipo==='receita'&&f.status==='pendente').reduce((s,f)=>s+(parseFloat(f.valor)||0),0);
+  const recebido=DATA.financeiro.filter(f=>f.tipo==='receita'&&f.status==='pago').reduce((s,f)=>s+(parseFloat(f.valor)||0),0);
+  const now=new Date();
+  const urgentes=DATA.eventos.filter(e=>{if(!e.data||e.status==='Concluído')return false;return(new Date(e.data+'T12:00:00')-now)/86400000<=7;});
+  document.getElementById('ds-clientes').textContent=DATA.clientes.length;
+  document.getElementById('ds-processos').textContent=ativos.length;
+  document.getElementById('ds-proc-sub').textContent=`de ${DATA.processos.length} total`;
+  document.getElementById('ds-prazos').textContent=urgentes.length;
+  document.getElementById('ds-prazos').style.color=urgentes.length>0?'var(--red)':'var(--green)';
+  document.getElementById('ds-receber').textContent=brl(aReceber);
+  document.getElementById('ds-rec-sub').textContent=`recebido: ${brl(recebido)}`;
+  const proximos=DATA.eventos.filter(e=>e.data&&e.status!=='Concluído').sort((a,b)=>a.data?.localeCompare(b.data)).slice(0,5);
+  const prEl=document.getElementById('dash-prazos');
+  prEl.innerHTML=proximos.length?proximos.map(ev=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);margin-bottom:6px"><div><div style="font-size:13px;font-weight:500">${ev.titulo}</div><div style="font-size:11px;color:var(--textm);margin-top:2px">${ev.cliente||''}</div></div><span class="${dateClass(ev.data)}" style="font-size:12px;flex-shrink:0">${fmtDate(ev.data)}</span></div>`).join(''):'<div class="empty"><p>Nenhum prazo próximo</p></div>';
+  const areaCount={};DATA.processos.forEach(p=>{if(p.area)areaCount[p.area]=(areaCount[p.area]||0)+1;});
+  destroyChart('area');
+  if(Object.keys(areaCount).length){charts['area']=new Chart(document.getElementById('chart-area'),{type:'bar',data:{labels:Object.keys(areaCount),datasets:[{data:Object.values(areaCount),backgroundColor:['#c9a84c','#4a7fa5','#3d8c6e','#8c3d4a','#a06830'],borderRadius:4}]},options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#5c5a6e',font:{size:11}},grid:{display:false}},y:{ticks:{color:'#5c5a6e',font:{size:11}},grid:{color:'#2a2a3a'}}},animation:{duration:400}}});}
+  const cliEl=document.getElementById('dash-clientes-table');
+  cliEl.innerHTML=DATA.clientes.length?`<table><thead><tr><th>Nome</th><th>CPF/CNPJ</th><th>Telefone</th><th>Tipo</th><th>Status</th></tr></thead><tbody>${DATA.clientes.slice(0,5).map(c=>`<tr><td style="font-weight:500">${c.nome}</td><td style="color:var(--text2)">${c.cpfCnpj||'—'}</td><td style="color:var(--text2)">${c.celular||c.telefone||'—'}</td><td><span class="badge ${c.tipo==='PJ'?'bb':'bgr'}">${c.tipo||'PF'}</span></td><td><span class="badge ${c.status==='Ativo'?'bg':'bgr'}">${c.status||'Ativo'}</span></td></tr>`).join('')}</tbody></table>`:'<div class="empty"><p>Nenhum cliente ainda</p></div>';
+}
+
+// ===== CLIENTES =====
+function renderClientes() {
+  const q=document.getElementById('search-clientes').value.toLowerCase();
+  const filtered=DATA.clientes.filter(c=>c.nome?.toLowerCase().includes(q)||c.cpfCnpj?.includes(q)||c.email?.toLowerCase().includes(q));
+  document.getElementById('clientes-sub').textContent=`${DATA.clientes.length} cliente${DATA.clientes.length!==1?'s':''}`;
+  const el=document.getElementById('clientes-table');
+  if(!filtered.length){el.innerHTML='<div class="card"><div class="empty"><div class="ic">👥</div><h3>Nenhum cliente encontrado</h3></div></div>';return;}
+  el.innerHTML=`<div class="tw"><table><thead><tr><th>Nome</th><th>Tipo</th><th>CPF/CNPJ</th><th>Celular</th><th>E-mail</th><th>Status</th><th>Ações</th></tr></thead><tbody>${filtered.map(c=>`<tr><td style="font-weight:500">${c.nome}</td><td><span class="badge ${c.tipo==='PJ'?'bb':'bgr'}">${c.tipo||'PF'}</span></td><td style="color:var(--text2)">${c.cpfCnpj||'—'}</td><td style="color:var(--text2)">${c.celular||c.telefone||'—'}</td><td style="color:var(--text2)">${c.email||'—'}</td><td><span class="badge ${c.status==='Ativo'?'bg':'bgr'}">${c.status||'Ativo'}</span></td><td><div class="flex"><button class="btn btn-g btn-ic" onclick="editItem('cliente','${c.id}')">✏️</button><button class="btn btn-g btn-ic" onclick="deleteItem('clientes','${c.id}')" style="color:var(--red)">🗑️</button></div></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+// ===== PROCESSOS =====
+function renderProcessos() {
+  const q=document.getElementById('search-processos').value.toLowerCase();
+  const fs=document.getElementById('filter-proc-status').value;
+  const filtered=DATA.processos.filter(p=>(p.titulo?.toLowerCase().includes(q)||p.numero?.includes(q)||p.cliente?.toLowerCase().includes(q))&&(!fs||p.status===fs));
+  document.getElementById('processos-sub').textContent=`${DATA.processos.length} processo${DATA.processos.length!==1?'s':''}`;
+  const el=document.getElementById('processos-table');
+  if(!filtered.length){el.innerHTML='<div class="card"><div class="empty"><div class="ic">📁</div><h3>Nenhum processo encontrado</h3></div></div>';return;}
+  el.innerHTML=`<div class="tw"><table><thead><tr><th>Nº Processo</th><th>Título</th><th>Cliente</th><th>Área</th><th>Tribunal</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead><tbody>${filtered.map(p=>`<tr><td style="color:var(--gold);font-family:monospace;font-size:12px">${p.numero||'—'}</td><td style="font-weight:500">${p.titulo}</td><td style="color:var(--text2)">${p.cliente||'—'}</td><td><span class="badge bo">${p.area||'—'}</span></td><td style="color:var(--text2);font-size:12px">${p.tribunal||'—'}</td><td style="color:var(--text2)">${p.valorCausa?brl(p.valorCausa):'—'}</td><td>${statusBadge(p.status)}</td><td><div class="flex"><button class="btn btn-g btn-ic" onclick="editItem('processo','${p.id}')">✏️</button><button class="btn btn-g btn-ic" onclick="deleteItem('processos','${p.id}')" style="color:var(--red)">🗑️</button></div></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+// ===== AGENDA =====
+function renderAgenda() {
+  const q=document.getElementById('search-agenda').value.toLowerCase();
+  const ft=document.getElementById('filter-agenda-tipo').value;
+  const fs=document.getElementById('filter-agenda-status').value;
+  const now=new Date();
+  const urgentes=DATA.eventos.filter(e=>{if(!e.data||e.status==='Concluído')return false;return(new Date(e.data+'T12:00:00')-now)/86400000<=7;});
+  document.getElementById('agenda-sub').textContent=urgentes.length>0?`${urgentes.length} evento(s) requerem atenção`:'Todos os prazos em dia';
+  document.getElementById('agenda-warn').innerHTML=urgentes.length?`<div class="warn-bar">⚠️ ${urgentes.length} prazo(s) nos próximos 7 dias!</div>`:'';
+  const filtered=DATA.eventos.filter(e=>(e.titulo?.toLowerCase().includes(q)||e.cliente?.toLowerCase().includes(q))&&(!ft||e.tipo===ft)&&(!fs||e.status===fs));
+  const el=document.getElementById('agenda-table');
+  if(!filtered.length){el.innerHTML='<div class="card"><div class="empty"><div class="ic">📅</div><h3>Nenhum evento encontrado</h3></div></div>';return;}
+  el.innerHTML=`<div class="tw"><table><thead><tr><th>Título</th><th>Tipo</th><th>Data</th><th>Hora</th><th>Cliente</th><th>Prioridade</th><th>Status</th><th>Ações</th></tr></thead><tbody>${filtered.map(ev=>`<tr style="opacity:${ev.status==='Concluído'?.6:1}"><td style="font-weight:500">${ev.titulo}</td><td><span class="badge bb">${ev.tipo}</span></td><td><span class="${ev.status!=='Concluído'?dateClass(ev.data):''}">${fmtDate(ev.data)}</span></td><td style="color:var(--text2)">${ev.hora||'—'}</td><td style="color:var(--text2)">${ev.cliente||'—'}</td><td><span class="badge ${ev.prioridade==='Alta'?'br':ev.prioridade==='Média'?'by':'bgr'}">${ev.prioridade||'Média'}</span></td><td><button class="badge ${ev.status==='Concluído'?'bg':'by'}" style="cursor:pointer;border:none;background:none" onclick="toggleEvStatus('${ev.id}','${ev.status}')">${ev.status||'Pendente'}</button></td><td><div class="flex"><button class="btn btn-g btn-ic" onclick="editItem('evento','${ev.id}')">✏️</button><button class="btn btn-g btn-ic" onclick="deleteItem('eventos','${ev.id}')" style="color:var(--red)">🗑️</button></div></td></tr>`).join('')}</tbody></table></div>`;
+}
+async function toggleEvStatus(id,status){await db.collection('eventos').doc(id).update({status:status==='Concluído'?'Pendente':'Concluído',atualizadoEm:firebase.firestore.FieldValue.serverTimestamp()});}
+
+// ===== FINANCEIRO =====
+function renderFinanceiro() {
+  const q=document.getElementById('search-fin').value.toLowerCase();
+  const ft=document.getElementById('filter-fin-tipo').value;
+  const fs=document.getElementById('filter-fin-status').value;
+  const rec=DATA.financeiro.filter(f=>f.tipo==='receita'&&f.status==='pago').reduce((s,f)=>s+(parseFloat(f.valor)||0),0);
+  const desp=DATA.financeiro.filter(f=>f.tipo==='despesa'&&f.status==='pago').reduce((s,f)=>s+(parseFloat(f.valor)||0),0);
+  const arec=DATA.financeiro.filter(f=>f.tipo==='receita'&&f.status==='pendente').reduce((s,f)=>s+(parseFloat(f.valor)||0),0);
+  const saldo=rec-desp;
+  document.getElementById('fin-rec').textContent=brl(rec);
+  document.getElementById('fin-desp').textContent=brl(desp);
+  document.getElementById('fin-arec').textContent=brl(arec);
+  const sEl=document.getElementById('fin-saldo');sEl.textContent=brl(saldo);sEl.style.color=saldo>=0?'var(--green)':'var(--red)';
+  const filtered=DATA.financeiro.filter(f=>(f.descricao?.toLowerCase().includes(q)||f.cliente?.toLowerCase().includes(q))&&(!ft||f.tipo===ft)&&(!fs||f.status===fs));
+  const el=document.getElementById('financeiro-table');
+  if(!filtered.length){el.innerHTML='<div class="card"><div class="empty"><div class="ic">💰</div><h3>Nenhum lançamento</h3></div></div>';return;}
+  el.innerHTML=`<div class="tw"><table><thead><tr><th>Descrição</th><th>Tipo</th><th>Categoria</th><th>Cliente</th><th>Valor</th><th>Data</th><th>Vencimento</th><th>Status</th><th>Ações</th></tr></thead><tbody>${filtered.map(f=>`<tr><td style="font-weight:500">${f.descricao}</td><td><span class="badge ${f.tipo==='receita'?'bg':'br'}">${f.tipo==='receita'?'Receita':'Despesa'}</span></td><td style="color:var(--text2)">${f.categoria||'—'}</td><td style="color:var(--text2)">${f.cliente||'—'}</td><td style="font-weight:600;color:${f.tipo==='receita'?'var(--green)':'var(--red)'}">${f.tipo==='despesa'?'- ':''}${brl(f.valor)}</td><td style="color:var(--text2)">${fmtDate(f.data)}</td><td style="color:var(--text2)">${fmtDate(f.vencimento)}</td><td><button class="badge ${f.status==='pago'?'bg':'by'}" style="cursor:pointer;border:none;background:none" onclick="toggleFinStatus('${f.id}','${f.status}')">${f.status==='pago'?(f.tipo==='receita'?'Recebido':'Pago'):'Pendente'}</button></td><td><div class="flex"><button class="btn btn-g btn-ic" onclick="editItem('financeiro','${f.id}')">✏️</button><button class="btn btn-g btn-ic" onclick="deleteItem('financeiro','${f.id}')" style="color:var(--red)">🗑️</button></div></td></tr>`).join('')}</tbody></table></div>`;
+}
+async function toggleFinStatus(id,status){await db.collection('financeiro').doc(id).update({status:status==='pago'?'pendente':'pago',atualizadoEm:firebase.firestore.FieldValue.serverTimestamp()});}
+
+// ===== DOCUMENTOS =====
+function renderDocumentos() {
+  const q=document.getElementById('search-documentos').value.toLowerCase();
+  const filtered=DATA.documentos.filter(d=>d.titulo?.toLowerCase().includes(q)||d.cliente?.toLowerCase().includes(q)||d.tipo?.toLowerCase().includes(q));
+  document.getElementById('documentos-sub').textContent=`${DATA.documentos.length} documento${DATA.documentos.length!==1?'s':''}`;
+  const el=document.getElementById('documentos-table');
+  if(!filtered.length){el.innerHTML='<div class="card"><div class="empty"><div class="ic">📄</div><h3>Nenhum documento</h3></div></div>';return;}
+  el.innerHTML=`<div class="tw"><table><thead><tr><th>Título</th><th>Tipo</th><th>Cliente</th><th>Processo</th><th>Data</th><th>Arquivos</th><th>Status</th><th>Ações</th></tr></thead><tbody>${filtered.map(d=>`<tr><td style="font-weight:500">${d.titulo}</td><td><span class="badge bb">${d.tipo||'—'}</span></td><td style="color:var(--text2)">${d.cliente||'—'}</td><td style="color:var(--text2);font-size:12px">${d.processo||'—'}</td><td style="color:var(--text2)">${fmtDate(d.data)}</td><td><button class="btn btn-g btn-sm" onclick="openFiles('${d.id}')">📎 ${d.arquivos?.length||0} arquivo(s)</button></td><td><span class="badge ${d.status==='Ativo'?'bg':'bgr'}">${d.status||'Ativo'}</span></td><td><div class="flex"><button class="btn btn-g btn-ic" onclick="editItem('documento','${d.id}')">✏️</button><button class="btn btn-g btn-ic" onclick="deleteItem('documentos','${d.id}')" style="color:var(--red)">🗑️</button></div></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+// ===== FILE UPLOAD =====
+async function openFiles(docId) {
+  const doc = DATA.documentos.find(d=>d.id===docId);
+  if (!doc) return;
+  document.getElementById('modal-container').innerHTML = `
+    <div class="overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <div class="mhd"><h3>📎 Arquivos — ${doc.titulo}</h3><button class="btn btn-g btn-ic" onclick="closeModal()">✕</button></div>
+        <div class="mbody">
+          <div class="upload-area" id="upload-area-${docId}" onclick="document.getElementById('file-input-${docId}').click()" ondragover="event.preventDefault();this.classList.add('dragging')" ondragleave="this.classList.remove('dragging')" ondrop="handleDrop(event,'${docId}')">
+            <div style="font-size:2rem;margin-bottom:8px">📁</div>
+            <p style="font-weight:500;margin-bottom:4px">Clique ou arraste arquivos aqui</p>
+            <p style="font-size:12px;color:var(--text2)">PDF, Word, imagens — máx. 10MB por arquivo</p>
+            <input type="file" id="file-input-${docId}" style="display:none" multiple onchange="uploadFiles(this.files,'${docId}')"/>
+          </div>
+          <div id="upload-progress-${docId}"></div>
+          <div style="margin-top:16px" id="files-list-${docId}">
+            ${(doc.arquivos||[]).length===0?'<p style="color:var(--textm);font-size:13px;text-align:center;padding:16px 0">Nenhum arquivo ainda</p>':
+            (doc.arquivos||[]).map((f,i)=>`
+              <div class="file-item">
+                <div class="flex"><span style="font-size:16px">${fileIcon(f.nome)}</span><a href="${f.url}" target="_blank">${f.nome}</a><span style="font-size:11px;color:var(--textm);margin-left:4px">${f.tamanho||''}</span></div>
+                <button class="btn btn-g btn-ic" onclick="deleteFile('${docId}',${i})" style="color:var(--red)">🗑️</button>
+              </div>`).join('')}
+          </div>
+        </div>
+        <div class="mfoot"><button class="btn btn-s" onclick="closeModal()">Fechar</button></div>
+      </div>
+    </div>`;
+}
+
+function fileIcon(nome) {
+  const ext = nome?.split('.').pop()?.toLowerCase();
+  if (['pdf'].includes(ext)) return '📕';
+  if (['doc','docx'].includes(ext)) return '📘';
+  if (['xls','xlsx'].includes(ext)) return '📗';
+  if (['jpg','jpeg','png','gif','webp'].includes(ext)) return '🖼️';
+  return '📄';
+}
+
+async function uploadFiles(files, docId) {
+  const progressEl = document.getElementById(`upload-progress-${docId}`);
+  const doc = DATA.documentos.find(d=>d.id===docId);
+  const existingFiles = doc?.arquivos || [];
+
+  if (CLOUDINARY_CLOUD_NAME === 'SEU_CLOUD_NAME') {
+    alert('⚙️ Configure o Cloudinary no código!\n\nSubstitua SEU_CLOUD_NAME e SEU_UPLOAD_PRESET pelos valores da sua conta em cloudinary.com');
+    return;
+  }
+
+  for (const file of files) {
+    if (file.size > 10 * 1024 * 1024) { alert(`Arquivo ${file.name} excede 10MB.`); continue; }
+
+    progressEl.innerHTML = `<div style="margin-top:10px"><p style="font-size:12px;color:var(--text2);margin-bottom:4px">Enviando ${file.name}...</p><div class="progress-bar"><div class="progress-fill" id="pf-${docId}" style="width:30%"></div></div></div>`;
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+      formData.append('folder', `lexcrm/${currentUser.uid}/${docId}`);
+
+      const pfEl = document.getElementById(`pf-${docId}`);
+      if (pfEl) pfEl.style.width = '60%';
+
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!res.ok) throw new Error('Erro no upload');
+      const data = await res.json();
+
+      if (pfEl) pfEl.style.width = '100%';
+
+      const tamanho = file.size > 1024*1024 ? (file.size/1024/1024).toFixed(1)+'MB' : Math.round(file.size/1024)+'KB';
+      existingFiles.push({
+        nome: file.name,
+        url: data.secure_url,
+        publicId: data.public_id,  // salvo para poder deletar depois
+        tamanho,
+        criadoEm: new Date().toISOString()
+      });
+    } catch(err) {
+      console.error(err);
+      alert(`Erro ao enviar ${file.name}. Verifique as configurações do Cloudinary.`);
+    }
+  }
+
+  await db.collection('documentos').doc(docId).update({ arquivos: existingFiles, atualizadoEm: firebase.firestore.FieldValue.serverTimestamp() });
+  progressEl.innerHTML = '';
+  openFiles(docId);
+}
+
+function handleDrop(event, docId) {
+  event.preventDefault();
+  document.getElementById(`upload-area-${docId}`)?.classList.remove('dragging');
+  uploadFiles(event.dataTransfer.files, docId);
+}
+
+async function deleteFile(docId, index) {
+  if (!confirm('Deseja excluir este arquivo?')) return;
+  const doc = DATA.documentos.find(d=>d.id===docId);
+  const arquivos = [...(doc?.arquivos||[])];
+  // Nota: a exclusão física no Cloudinary requer backend (API key secreta).
+  // O arquivo é removido da lista do documento no Firestore.
+  arquivos.splice(index, 1);
+  await db.collection('documentos').doc(docId).update({ arquivos, atualizadoEm: firebase.firestore.FieldValue.serverTimestamp() });
+  openFiles(docId);
+}
+
+// ===== RELATORIOS =====
+function renderRelatorios() {
+  const ativos=DATA.processos.filter(p=>p.status==='Ativo'||p.status==='Em andamento').length;
+  const ganhos=DATA.processos.filter(p=>p.status==='Ganho').length;
+  const receita=DATA.financeiro.filter(f=>f.tipo==='receita'&&f.status==='pago').reduce((s,f)=>s+(parseFloat(f.valor)||0),0);
+  document.getElementById('rel-cli').textContent=DATA.clientes.length;
+  document.getElementById('rel-proc').textContent=`${ativos}/${DATA.processos.length}`;
+  document.getElementById('rel-ganhos').textContent=ganhos;
+  document.getElementById('rel-receita').textContent=brl(receita);
+  const areaCount={};DATA.processos.forEach(p=>{if(p.area)areaCount[p.area]=(areaCount[p.area]||0)+1;});
+  destroyChart('rel-area');
+  if(Object.keys(areaCount).length){charts['rel-area']=new Chart(document.getElementById('chart-rel-area'),{type:'bar',data:{labels:Object.keys(areaCount),datasets:[{data:Object.values(areaCount),backgroundColor:['#c9a84c','#4a7fa5','#3d8c6e','#8c3d4a','#a06830'],borderRadius:4}]},options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#5c5a6e',font:{size:11}},grid:{display:false}},y:{ticks:{color:'#5c5a6e',font:{size:11}},grid:{color:'#2a2a3a'}}},animation:{duration:400}}});}
+  const statusCount={};DATA.processos.forEach(p=>{if(p.status)statusCount[p.status]=(statusCount[p.status]||0)+1;});
+  destroyChart('rel-status');
+  if(Object.keys(statusCount).length){charts['rel-status']=new Chart(document.getElementById('chart-rel-status'),{type:'doughnut',data:{labels:Object.keys(statusCount),datasets:[{data:Object.values(statusCount),backgroundColor:['#c9a84c','#4a7fa5','#3d8c6e','#8c3d4a','#a06830','#5c5a6e'],borderWidth:0}]},options:{plugins:{legend:{labels:{color:'#9896a8',font:{size:11}}}},animation:{duration:400}}});}
+  const monthly={};DATA.financeiro.forEach(f=>{if(!f.data)return;const m=f.data.substring(0,7);if(!monthly[m])monthly[m]={mes:m,r:0,d:0};if(f.tipo==='receita'&&f.status==='pago')monthly[m].r+=parseFloat(f.valor)||0;if(f.tipo==='despesa'&&f.status==='pago')monthly[m].d+=parseFloat(f.valor)||0;});
+  const mData=Object.values(monthly).sort((a,b)=>a.mes.localeCompare(b.mes)).slice(-6);
+  destroyChart('rel-fin');
+  if(mData.length){charts['rel-fin']=new Chart(document.getElementById('chart-rel-fin'),{type:'line',data:{labels:mData.map(m=>m.mes),datasets:[{label:'Receitas',data:mData.map(m=>m.r),borderColor:'#5ecfa0',backgroundColor:'rgba(94,207,160,.1)',fill:true,tension:.3},{label:'Despesas',data:mData.map(m=>m.d),borderColor:'#e07a88',backgroundColor:'rgba(224,122,136,.1)',fill:true,tension:.3}]},options:{plugins:{legend:{labels:{color:'#9896a8',font:{size:11}}}},scales:{x:{ticks:{color:'#5c5a6e',font:{size:11}},grid:{color:'#2a2a3a'}},y:{ticks:{color:'#5c5a6e',font:{size:11},callback:v=>`R$${(v/1000).toFixed(0)}k`},grid:{color:'#2a2a3a'}}},animation:{duration:400}}});}
+}
+
+// ===== MODAL SYSTEM =====
+const v = id => { const el=document.getElementById('f-'+id); return el?el.value:''; };
+const sv = (id,val) => { const el=document.getElementById('f-'+id); if(el&&val!==undefined)el.value=val||''; };
+const colMap = { cliente:'clientes', processo:'processos', evento:'eventos', financeiro:'financeiro', documento:'documentos' };
+
+const MODALS = {
+  cliente: {
+    title: id=>id?'Editar Cliente':'Novo Cliente', col:'clientes',
+    fields: ()=>`<div class="frow"><div class="fg"><label class="fl">Nome completo *</label><input class="fi" id="f-nome" required placeholder="Nome do cliente"/></div><div class="fg"><label class="fl">Tipo</label><select class="fs" id="f-tipo"><option>PF</option><option>PJ</option></select></div></div><div class="frow"><div class="fg"><label class="fl">CPF / CNPJ</label><input class="fi" id="f-cpfCnpj" placeholder="000.000.000-00"/></div><div class="fg"><label class="fl">RG</label><input class="fi" id="f-rg"/></div></div><div class="frow"><div class="fg"><label class="fl">E-mail</label><input class="fi" id="f-email" type="email"/></div><div class="fg"><label class="fl">Celular</label><input class="fi" id="f-celular" placeholder="(11) 99999-9999"/></div></div><div class="frow"><div class="fg"><label class="fl">Telefone</label><input class="fi" id="f-telefone"/></div><div class="fg"><label class="fl">Profissão</label><input class="fi" id="f-profissao"/></div></div><div class="fg"><label class="fl">Endereço</label><input class="fi" id="f-endereco"/></div><div class="frow"><div class="fg"><label class="fl">Cidade</label><input class="fi" id="f-cidade"/></div><div class="fg"><label class="fl">Estado</label><select class="fs" id="f-estado"><option value="">Selecione</option>${['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'].map(s=>`<option>${s}</option>`).join('')}</select></div></div><div class="frow"><div class="fg"><label class="fl">CEP</label><input class="fi" id="f-cep"/></div><div class="fg"><label class="fl">Status</label><select class="fs" id="f-status"><option>Ativo</option><option>Inativo</option><option>Prospecto</option></select></div></div><div class="fg"><label class="fl">Observações</label><textarea class="fta" id="f-observacoes"></textarea></div>`,
+    getValues: ()=>({nome:v('nome'),tipo:v('tipo'),cpfCnpj:v('cpfCnpj'),rg:v('rg'),email:v('email'),celular:v('celular'),telefone:v('telefone'),profissao:v('profissao'),endereco:v('endereco'),cidade:v('cidade'),estado:v('estado'),cep:v('cep'),status:v('status'),observacoes:v('observacoes')}),
+    setValues: d=>{sv('nome',d.nome);sv('tipo',d.tipo);sv('cpfCnpj',d.cpfCnpj);sv('rg',d.rg);sv('email',d.email);sv('celular',d.celular);sv('telefone',d.telefone);sv('profissao',d.profissao);sv('endereco',d.endereco);sv('cidade',d.cidade);sv('estado',d.estado);sv('cep',d.cep);sv('status',d.status);sv('observacoes',d.observacoes);}
+  },
+  processo: {
+    title: id=>id?'Editar Processo':'Novo Processo', col:'processos',
+    fields: ()=>{const cli=DATA.clientes.map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('');return `<div class="frow"><div class="fg"><label class="fl">Número do Processo</label><input class="fi" id="f-numero" placeholder="0000000-00.0000.0.00.0000"/></div><div class="fg"><label class="fl">Status</label><select class="fs" id="f-status"><option>Em andamento</option><option>Ativo</option><option>Suspenso</option><option>Arquivado</option><option>Encerrado</option><option>Ganho</option><option>Perdido</option></select></div></div><div class="fg"><label class="fl">Título *</label><input class="fi" id="f-titulo" required/></div><div class="frow"><div class="fg"><label class="fl">Cliente</label><select class="fs" id="f-cliente"><option value="">Selecione</option>${cli}</select></div><div class="fg"><label class="fl">Área Jurídica</label><select class="fs" id="f-area"><option value="">Selecione</option><option>Cível</option><option>Criminal</option><option>Trabalhista</option><option>Tributário</option><option>Empresarial</option><option>Família</option><option>Previdenciário</option><option>Ambiental</option><option>Imobiliário</option><option>Outro</option></select></div></div><div class="frow"><div class="fg"><label class="fl">Tribunal</label><select class="fs" id="f-tribunal"><option value="">Selecione</option><option>TJSP</option><option>TJRJ</option><option>TJMG</option><option>TRT</option><option>TRF</option><option>STJ</option><option>STF</option><option>CARF</option><option>Juizado Especial</option><option>Outro</option></select></div><div class="fg"><label class="fl">Vara</label><input class="fi" id="f-vara"/></div></div><div class="frow"><div class="fg"><label class="fl">Juiz</label><input class="fi" id="f-juiz"/></div><div class="fg"><label class="fl">Valor da Causa (R$)</label><input class="fi" id="f-valorCausa" type="number" step="0.01"/></div></div><div class="frow"><div class="fg"><label class="fl">Parte contrária</label><input class="fi" id="f-parte_contraria"/></div><div class="fg"><label class="fl">Advogado contrário</label><input class="fi" id="f-advogado_contrario"/></div></div><div class="frow"><div class="fg"><label class="fl">Data de abertura</label><input class="fi" id="f-dataAbertura" type="date"/></div><div class="fg"><label class="fl">Fase atual</label><input class="fi" id="f-fase"/></div></div><div class="fg"><label class="fl">Descrição</label><textarea class="fta" id="f-descricao"></textarea></div><div class="fg"><label class="fl">Observações internas</label><textarea class="fta" id="f-observacoes"></textarea></div>`;},
+    getValues: ()=>({numero:v('numero'),status:v('status'),titulo:v('titulo'),cliente:v('cliente'),area:v('area'),tribunal:v('tribunal'),vara:v('vara'),juiz:v('juiz'),valorCausa:v('valorCausa'),parte_contraria:v('parte_contraria'),advogado_contrario:v('advogado_contrario'),dataAbertura:v('dataAbertura'),fase:v('fase'),descricao:v('descricao'),observacoes:v('observacoes')}),
+    setValues: d=>{sv('numero',d.numero);sv('status',d.status);sv('titulo',d.titulo);sv('cliente',d.cliente);sv('area',d.area);sv('tribunal',d.tribunal);sv('vara',d.vara);sv('juiz',d.juiz);sv('valorCausa',d.valorCausa);sv('parte_contraria',d.parte_contraria);sv('advogado_contrario',d.advogado_contrario);sv('dataAbertura',d.dataAbertura);sv('fase',d.fase);sv('descricao',d.descricao);sv('observacoes',d.observacoes);}
+  },
+  evento: {
+    title: id=>id?'Editar Evento':'Novo Evento', col:'eventos',
+    fields: ()=>{const cli=DATA.clientes.map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('');const proc=DATA.processos.map(p=>`<option value="${p.titulo}">${p.titulo}</option>`).join('');return `<div class="fg"><label class="fl">Título *</label><input class="fi" id="f-titulo" required/></div><div class="frow"><div class="fg"><label class="fl">Tipo</label><select class="fs" id="f-tipo"><option>Audiência</option><option>Prazo processual</option><option>Reunião com cliente</option><option>Perícia</option><option>Protocolo</option><option>Despacho</option><option>Julgamento</option><option>Outro</option></select></div><div class="fg"><label class="fl">Prioridade</label><select class="fs" id="f-prioridade"><option>Alta</option><option>Média</option><option>Baixa</option></select></div></div><div class="frow"><div class="fg"><label class="fl">Data *</label><input class="fi" id="f-data" type="date" required/></div><div class="fg"><label class="fl">Hora</label><input class="fi" id="f-hora" type="time"/></div></div><div class="frow"><div class="fg"><label class="fl">Cliente</label><select class="fs" id="f-cliente"><option value="">Selecione</option>${cli}</select></div><div class="fg"><label class="fl">Processo</label><select class="fs" id="f-processo"><option value="">Selecione</option>${proc}</select></div></div><div class="frow"><div class="fg"><label class="fl">Local</label><input class="fi" id="f-local"/></div><div class="fg"><label class="fl">Status</label><select class="fs" id="f-status"><option>Pendente</option><option>Concluído</option><option>Cancelado</option></select></div></div><div class="fg"><label class="fl">Descrição</label><textarea class="fta" id="f-descricao"></textarea></div>`;},
+    getValues: ()=>({titulo:v('titulo'),tipo:v('tipo'),prioridade:v('prioridade'),data:v('data'),hora:v('hora'),cliente:v('cliente'),processo:v('processo'),local:v('local'),status:v('status'),descricao:v('descricao')}),
+    setValues: d=>{sv('titulo',d.titulo);sv('tipo',d.tipo);sv('prioridade',d.prioridade);sv('data',d.data);sv('hora',d.hora);sv('cliente',d.cliente);sv('processo',d.processo);sv('local',d.local);sv('status',d.status);sv('descricao',d.descricao);}
+  },
+  financeiro: {
+    title: id=>id?'Editar Lançamento':'Novo Lançamento', col:'financeiro',
+    fields: ()=>{const cli=DATA.clientes.map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('');const proc=DATA.processos.map(p=>`<option value="${p.titulo}">${p.titulo}</option>`).join('');return `<div class="fg"><label class="fl">Descrição *</label><input class="fi" id="f-descricao" required/></div><div class="frow"><div class="fg"><label class="fl">Tipo *</label><select class="fs" id="f-tipo" onchange="updateCatOptions()"><option value="receita">Receita</option><option value="despesa">Despesa</option></select></div><div class="fg"><label class="fl">Categoria</label><select class="fs" id="f-categoria"><option>Honorários</option><option>Consulta</option><option>Êxito</option><option>Diligência</option><option>Acordo</option><option>Outro</option></select></div></div><div class="frow"><div class="fg"><label class="fl">Valor (R$) *</label><input class="fi" id="f-valor" type="number" step="0.01" required/></div><div class="fg"><label class="fl">Status</label><select class="fs" id="f-status"><option value="pendente">Pendente</option><option value="pago">Pago / Recebido</option></select></div></div><div class="frow"><div class="fg"><label class="fl">Data</label><input class="fi" id="f-data" type="date"/></div><div class="fg"><label class="fl">Vencimento</label><input class="fi" id="f-vencimento" type="date"/></div></div><div class="frow"><div class="fg"><label class="fl">Cliente</label><select class="fs" id="f-cliente"><option value="">Selecione</option>${cli}</select></div><div class="fg"><label class="fl">Forma de pagamento</label><select class="fs" id="f-formaPagamento"><option value="">Selecione</option><option>Pix</option><option>Transferência</option><option>Boleto</option><option>Dinheiro</option><option>Cartão</option><option>Cheque</option></select></div></div><div class="fg"><label class="fl">Processo vinculado</label><select class="fs" id="f-processo"><option value="">Selecione</option>${proc}</select></div><div class="fg"><label class="fl">Observações</label><textarea class="fta" id="f-observacoes"></textarea></div>`;},
+    getValues: ()=>({descricao:v('descricao'),tipo:v('tipo'),categoria:v('categoria'),valor:v('valor'),status:v('status'),data:v('data'),vencimento:v('vencimento'),cliente:v('cliente'),formaPagamento:v('formaPagamento'),processo:v('processo'),observacoes:v('observacoes')}),
+    setValues: d=>{sv('descricao',d.descricao);sv('tipo',d.tipo);sv('categoria',d.categoria);sv('valor',d.valor);sv('status',d.status);sv('data',d.data);sv('vencimento',d.vencimento);sv('cliente',d.cliente);sv('formaPagamento',d.formaPagamento);sv('processo',d.processo);sv('observacoes',d.observacoes);}
+  },
+  documento: {
+    title: id=>id?'Editar Documento':'Novo Documento', col:'documentos',
+    fields: ()=>{const cli=DATA.clientes.map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('');const proc=DATA.processos.map(p=>`<option value="${p.titulo}">${p.titulo}</option>`).join('');return `<div class="fg"><label class="fl">Título *</label><input class="fi" id="f-titulo" required/></div><div class="frow"><div class="fg"><label class="fl">Tipo</label><select class="fs" id="f-tipo"><option>Petição inicial</option><option>Contestação</option><option>Recurso</option><option>Contrato</option><option>Procuração</option><option>Acordo</option><option>Laudo</option><option>Sentença</option><option>Acórdão</option><option>Certidão</option><option>Notificação</option><option>Outro</option></select></div><div class="fg"><label class="fl">Status</label><select class="fs" id="f-status"><option>Ativo</option><option>Arquivado</option><option>Rascunho</option></select></div></div><div class="frow"><div class="fg"><label class="fl">Cliente</label><select class="fs" id="f-cliente"><option value="">Selecione</option>${cli}</select></div><div class="fg"><label class="fl">Processo</label><select class="fs" id="f-processo"><option value="">Selecione</option>${proc}</select></div></div><div class="frow"><div class="fg"><label class="fl">Data</label><input class="fi" id="f-data" type="date"/></div><div class="fg"><label class="fl">Nº / Referência</label><input class="fi" id="f-numero"/></div></div><div class="fg"><label class="fl">Descrição</label><textarea class="fta" id="f-descricao"></textarea></div>`;},
+    getValues: ()=>({titulo:v('titulo'),tipo:v('tipo'),status:v('status'),cliente:v('cliente'),processo:v('processo'),data:v('data'),numero:v('numero'),descricao:v('descricao'),arquivos:[]}),
+    setValues: d=>{sv('titulo',d.titulo);sv('tipo',d.tipo);sv('status',d.status);sv('cliente',d.cliente);sv('processo',d.processo);sv('data',d.data);sv('numero',d.numero);sv('descricao',d.descricao);}
+  }
+};
+
+function openModal(type) { editingId=null; showModal(type,null); }
+function editItem(type,id) { editingId=id; showModal(type,id); }
+
+function showModal(type,id) {
+  const cfg=MODALS[type];
+  const data=id?DATA[colMap[type]]?.find(d=>d.id===id):null;
+  document.getElementById('modal-container').innerHTML=`
+    <div class="overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal modal-lg">
+        <div class="mhd"><h3>${cfg.title(id)}</h3><button class="btn btn-g btn-ic" onclick="closeModal()">✕</button></div>
+        <form onsubmit="submitModal(event,'${type}')">
+          <div class="mbody">${cfg.fields()}</div>
+          <div class="mfoot"><button type="button" class="btn btn-s" onclick="closeModal()">Cancelar</button><button type="submit" class="btn btn-p" id="modal-save-btn">${id?'Salvar alterações':'Cadastrar'}</button></div>
+        </form>
+      </div>
+    </div>`;
+  if(data) cfg.setValues(data);
+}
+
+function closeModal() { document.getElementById('modal-container').innerHTML=''; editingId=null; }
+
+async function submitModal(e,type) {
+  e.preventDefault();
+  const btn=document.getElementById('modal-save-btn');
+  btn.textContent='Salvando...';btn.disabled=true;
+  try {
+    const cfg=MODALS[type];
+    let data=cfg.getValues();
+    if (type==='documento'&&editingId) {
+      const existing=DATA.documentos.find(d=>d.id===editingId);
+      data.arquivos=existing?.arquivos||[];
+    }
+    await saveDoc(colMap[type],data,editingId);
+    closeModal();
+  } catch(err){ console.error(err);btn.textContent='Erro! Tente novamente';btn.disabled=false; }
+}
+
+async function deleteItem(col,id) { if(confirm('Deseja excluir este item?')) await delDoc(col,id); }
+
+function updateCatOptions() {
+  const tipo=document.getElementById('f-tipo')?.value;
+  const catEl=document.getElementById('f-categoria');
+  if(!catEl)return;
+  const opts=tipo==='despesa'?['Custas processuais','Diligência externa','Viagem','Material','Aluguel','Salários','Outro']:['Honorários','Consulta','Êxito','Diligência','Acordo','Outro'];
+  catEl.innerHTML=opts.map(o=>`<option>${o}</option>`).join('');
+}
+</script>
+</body>
+</html>
