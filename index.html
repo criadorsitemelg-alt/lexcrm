@@ -1,0 +1,1943 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>LexCRM — Gestão Jurídica</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+<!-- Cloudinary usado no lugar do Firebase Storage (gratuito, sem cartão) -->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080d14;--bg2:#0d1520;--bgc:#111e2e;--bgh:#172438;
+  --border:#1e3148;--borderl:#28456a;
+  --gold:#38c9b0;--goldl:#5ddeca;--goldd:#1a7a68;
+  --text:#e8f0f8;--text2:#7a9abf;--textm:#3d5a7a;
+  --green:#4dd98a;--blue:#5baef0;--red:#f07a8a;--orange:#f0a84a;
+  --sw:260px;--r:10px;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.6;min-height:100vh}
+h1,h2,h3,h4{font-family:'Cormorant Garamond',serif;font-weight:600}
+input,select,textarea,button{font-family:'DM Sans',sans-serif;font-size:14px}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--borderl);border-radius:3px}
+
+/* AUTH */
+#auth-page{min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 20% 50%,rgba(56,201,176,.07),transparent 60%),radial-gradient(ellipse at 80% 20%,rgba(91,174,240,.05),transparent 50%),radial-gradient(ellipse at 50% 100%,rgba(56,201,176,.04),transparent 50%)}
+.auth-card{background:var(--bgc);border:1px solid var(--border);border-radius:16px;padding:48px 40px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.auth-logo{text-align:center;margin-bottom:32px}
+.auth-logo h1{font-size:2rem;color:var(--gold);display:flex;align-items:center;justify-content:center;gap:10px}
+.auth-logo p{color:var(--text2);font-size:12px;letter-spacing:.15em;text-transform:uppercase;margin-top:4px}
+
+/* PENDING PAGE */
+#pending-page{min-height:100vh;display:none;align-items:center;justify-content:center;background:var(--bg)}
+.pending-card{background:var(--bgc);border:1px solid var(--border);border-radius:16px;padding:48px 40px;width:100%;max-width:480px;text-align:center}
+.pending-card h2{color:var(--gold);font-size:1.8rem;margin-bottom:12px}
+.pending-card p{color:var(--text2);font-size:14px;line-height:1.7;margin-bottom:8px}
+
+/* APP */
+#app{display:none;min-height:100vh}
+.sidebar{width:var(--sw);background:var(--bg2);border-right:1px solid var(--border);position:fixed;top:0;left:0;height:100vh;display:flex;flex-direction:column;z-index:100}
+.sidebar-logo{padding:28px 24px 20px;border-bottom:1px solid var(--border)}
+.sidebar-logo h2{font-size:1.4rem;color:var(--gold);display:flex;align-items:center;gap:8px}
+.sidebar-logo span{font-family:'DM Sans',sans-serif;font-size:11px;color:var(--textm);letter-spacing:.2em;text-transform:uppercase}
+.sidebar-nav{flex:1;padding:16px 12px;overflow-y:auto}
+.nav-section{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--textm);padding:8px 12px 4px;margin-top:8px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:var(--text2);cursor:pointer;font-size:13.5px;transition:all .15s;margin-bottom:2px;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{background:var(--bgh);color:var(--text)}
+.nav-item.active{background:linear-gradient(135deg,rgba(56,201,176,.18),rgba(56,201,176,.06));color:var(--goldl);border:1px solid rgba(56,201,176,.25)}
+.sidebar-footer{padding:16px 12px;border-top:1px solid var(--border)}
+.user-row{display:flex;align-items:center;gap:10px;padding:8px 12px;margin-bottom:6px}
+.avatar{width:32px;height:32px;background:linear-gradient(135deg,var(--goldd),var(--gold));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#080d14;flex-shrink:0}
+.user-email{font-size:12px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.admin-badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;background:rgba(56,201,176,.15);color:var(--goldl);border:1px solid rgba(56,201,176,.3);margin-left:6px;letter-spacing:.05em}
+.main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column}
+
+/* PAGES */
+.page{display:none;flex-direction:column;min-height:100vh}
+.page.active{display:flex}
+.page-hd{padding:28px 32px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.page-hd h1{font-size:2rem;line-height:1}
+.page-hd p{color:var(--text2);font-size:13px;margin-top:4px}
+.page-body{padding:24px 32px 32px}
+.hd-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+/* CARDS */
+.card{background:var(--bgc);border:1px solid var(--border);border-radius:var(--r);padding:20px}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(2,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}
+.stat-card{background:var(--bgc);border:1px solid var(--border);border-radius:var(--r);padding:20px 24px;transition:border-color .2s}
+.stat-card:hover{border-color:var(--borderl)}
+.stat-label{font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--textm);margin-bottom:6px}
+.stat-val{font-family:'Cormorant Garamond',serif;font-size:2.2rem;font-weight:600;line-height:1}
+.stat-sub{font-size:12px;color:var(--text2);margin-top:4px}
+.gold{color:var(--gold)}.green{color:var(--green)}.blue{color:var(--blue)}.red{color:var(--red)}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;border:none;white-space:nowrap}
+.btn-p{background:linear-gradient(135deg,var(--gold),var(--goldd));color:#080d14;font-weight:600}
+.btn-p:hover{filter:brightness(1.1);transform:translateY(-1px)}
+.btn-s{background:var(--bgh);color:var(--text);border:1px solid var(--borderl)}
+.btn-s:hover{border-color:var(--goldd);color:var(--goldl)}
+.btn-g{background:transparent;color:var(--text2);padding:7px 10px}
+.btn-g:hover{background:var(--bgh);color:var(--text)}
+.btn-success{background:rgba(77,217,138,.15);color:var(--green);border:1px solid rgba(77,217,138,.3)}
+.btn-success:hover{background:rgba(77,217,138,.28)}
+.btn-d{background:rgba(240,122,138,.12);color:var(--red);border:1px solid rgba(240,122,138,.3)}
+.btn-d:hover{background:rgba(240,122,138,.25)}
+.btn-ic{padding:7px;border-radius:8px}
+.btn-sm{padding:6px 12px;font-size:12px}
+.w100{width:100%;justify-content:center;padding:12px}
+
+/* FORMS */
+.fg{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.fl{font-size:12px;font-weight:500;color:var(--text2);letter-spacing:.05em}
+.fi,.fs,.fta{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);outline:none;transition:border-color .15s;width:100%}
+.fi:focus,.fs:focus,.fta:focus{border-color:var(--goldd);box-shadow:0 0 0 3px rgba(56,201,176,.12)}
+.fs option{background:var(--bgc)}
+.fta{resize:vertical;min-height:80px}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* TABLE */
+.tw{overflow-x:auto;border-radius:var(--r);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse}
+th{background:var(--bg2);padding:11px 16px;text-align:left;font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--textm);border-bottom:1px solid var(--border);white-space:nowrap;font-family:'DM Sans',sans-serif}
+td{padding:13px 16px;border-bottom:1px solid var(--border);font-size:13.5px;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--bgh)}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap;cursor:default}
+.bg{background:rgba(77,217,138,.15);color:var(--green);border:1px solid rgba(77,217,138,.3)}
+.bb{background:rgba(91,174,240,.15);color:var(--blue);border:1px solid rgba(91,174,240,.3)}
+.by{background:rgba(56,201,176,.15);color:var(--goldl);border:1px solid rgba(56,201,176,.3)}
+.br{background:rgba(240,122,138,.15);color:var(--red);border:1px solid rgba(240,122,138,.3)}
+.bgr{background:rgba(61,90,122,.3);color:var(--text2);border:1px solid var(--border)}
+.bo{background:rgba(240,168,74,.15);color:var(--orange);border:1px solid rgba(240,168,74,.3)}
+
+/* MODAL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .15s}
+.modal{background:var(--bgc);border:1px solid var(--borderl);border-radius:14px;width:100%;max-width:580px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.8);animation:slideUp .2s}
+.modal-lg{max-width:700px}
+.mhd{padding:24px 28px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.mhd h3{font-size:1.4rem}
+.mbody{padding:24px 28px}
+.mfoot{padding:16px 28px 24px;display:flex;gap:10px;justify-content:flex-end}
+
+/* SEARCH */
+.search{display:flex;align-items:center;gap:8px;background:var(--bgc);border:1px solid var(--border);border-radius:8px;padding:8px 14px}
+.search input{background:none;border:none;outline:none;color:var(--text);font-size:13px;min-width:200px}
+
+/* UPLOAD */
+.upload-area{border:2px dashed var(--borderl);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:all .2s;background:var(--bg2)}
+.upload-area:hover{border-color:var(--goldd);background:rgba(56,201,176,.05)}
+.upload-area.dragging{border-color:var(--gold);background:rgba(56,201,176,.1)}
+.file-item{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px}
+.file-item a{color:var(--goldl);text-decoration:none;font-size:13px;font-weight:500}
+.file-item a:hover{text-decoration:underline}
+.progress-bar{height:4px;background:var(--border);border-radius:2px;margin-top:8px;overflow:hidden}
+.progress-fill{height:100%;background:var(--gold);border-radius:2px;transition:width .3s}
+
+/* IA CHAT */
+.ia-chat{display:flex;flex-direction:column;height:520px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.ia-chat-msgs{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px}
+.ia-msg{max-width:80%;padding:12px 16px;border-radius:12px;font-size:14px;line-height:1.6;animation:fadeIn .2s}
+.ia-msg-bot{background:var(--bgc);border:1px solid var(--border);color:var(--text);align-self:flex-start;border-bottom-left-radius:4px}
+.ia-msg-user{background:linear-gradient(135deg,var(--goldd),rgba(56,201,176,.25));color:var(--text);align-self:flex-end;border-bottom-right-radius:4px}
+.ia-msg-system{background:rgba(94,207,160,.1);border:1px solid rgba(94,207,160,.2);color:var(--green);align-self:center;font-size:12px;text-align:center;max-width:100%}
+.ia-chat-input{display:flex;gap:8px;padding:16px;border-top:1px solid var(--border);background:var(--bgc)}
+.ia-chat-input textarea{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:14px;resize:none;outline:none;font-family:'DM Sans',sans-serif;transition:border-color .15s}
+.ia-chat-input textarea:focus{border-color:var(--goldd)}
+.ia-typing{display:flex;gap:4px;padding:12px 16px;align-self:flex-start}
+.ia-typing span{width:8px;height:8px;background:var(--textm);border-radius:50%;animation:bounce .8s infinite}
+.ia-typing span:nth-child(2){animation-delay:.15s}
+.ia-typing span:nth-child(3){animation-delay:.3s}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+
+/* DOCS GERADOS */
+.doc-gerado{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:8px}
+.doc-gerado-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.doc-gerado-titulo{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px}
+.doc-gerado-body{font-size:13px;color:var(--text2);line-height:1.7;white-space:pre-wrap;max-height:300px;overflow-y:auto;background:var(--bgc);border-radius:6px;padding:12px;border:1px solid var(--border)}
+
+/* ATENDIMENTO CARD */
+.atend-card{display:flex;align-items:center;justify-content:space-between;padding:16px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;transition:border-color .2s}
+.atend-card:hover{border-color:var(--borderl)}
+.atend-info h4{font-size:14px;font-weight:600;margin-bottom:4px}
+.atend-info p{font-size:12px;color:var(--text2)}
+.empty{text-align:center;padding:60px 20px;color:var(--text2)}
+.empty .ic{font-size:2.5rem;color:var(--textm);margin-bottom:12px}
+.empty h3{font-size:1.1rem;margin-bottom:6px}
+.empty p{font-size:13px;color:var(--textm)}
+.divider{height:1px;background:var(--border);margin:16px 0}
+.alert{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px}
+.alert-e{background:rgba(240,122,138,.12);border:1px solid rgba(240,122,138,.3);color:var(--red)}
+.alert-s{background:rgba(77,217,138,.12);border:1px solid rgba(77,217,138,.3);color:var(--green)}
+.loading{display:flex;align-items:center;justify-content:center;min-height:200px;color:var(--textm);gap:8px}
+.spin{width:18px;height:18px;border:2px solid var(--borderl);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite}
+.sec-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.sec-title{font-family:'Cormorant Garamond',serif;font-size:1.3rem}
+.gold-line{display:block;width:28px;height:2px;background:linear-gradient(90deg,var(--gold),transparent);margin-top:3px}
+.flex{display:flex;align-items:center;gap:8px}
+.warn-bar{background:rgba(240,122,138,.1);border:1px solid rgba(240,122,138,.3);border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;color:var(--red);font-size:13px;font-weight:500}
+.date-u{color:var(--red);font-weight:500}
+.date-w{color:var(--orange);font-weight:500}
+.date-ok{color:var(--green)}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* HAMBURGER */
+.hamburger{display:none;position:fixed;top:14px;left:14px;z-index:200;background:var(--bgc);border:1px solid var(--border);border-radius:8px;padding:8px 10px;cursor:pointer;font-size:18px;color:var(--text);line-height:1}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99;backdrop-filter:blur(2px)}
+
+@media(max-width:768px){
+  .hamburger{display:flex;align-items:center;justify-content:center}
+  .sidebar{transform:translateX(-100%);transition:transform .25s ease;z-index:150}
+  .sidebar.open{transform:translateX(0)}
+  .sidebar-overlay.open{display:block}
+  .main{margin-left:0}
+  .page-hd{padding:56px 16px 0}
+  .page-body{padding:12px 16px 24px}
+  .g4{grid-template-columns:repeat(2,1fr)}
+  .g3{grid-template-columns:1fr 1fr}
+  .g2{grid-template-columns:1fr}
+  .frow{grid-template-columns:1fr}
+  .tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{min-width:580px}
+  .hd-actions{width:100%}
+  .hd-actions .search{flex:1}
+  .modal{max-width:100%}
+  .auth-card{padding:32px 20px;margin:16px}
+  .stat-val{font-size:1.8rem}
+}
+</style>
+</head>
+<body>
+
+<!-- AUTH PAGE -->
+<div id="auth-page">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <h1>⚖️ LexCRM</h1>
+      <p>Sistema de Gestão Jurídica</p>
+    </div>
+    <div id="auth-alert"></div>
+    <div class="fg">
+      <label class="fl">E-mail</label>
+      <input class="fi" id="auth-email" type="email" placeholder="seu@email.com"/>
+    </div>
+    <div class="fg">
+      <label class="fl">Senha</label>
+      <input class="fi" id="auth-pass" type="password" placeholder="••••••••"/>
+    </div>
+    <div class="fg" id="auth-name-group" style="display:none">
+      <label class="fl">Nome completo</label>
+      <input class="fi" id="auth-name" placeholder="Dr. João Silva"/>
+    </div>
+    <div class="fg" id="auth-oab-group" style="display:none">
+      <label class="fl">OAB</label>
+      <input class="fi" id="auth-oab" placeholder="OAB/CE 00000"/>
+    </div>
+    <button class="btn btn-p w100" id="auth-btn" onclick="doAuth()">Entrar</button>
+    <div class="divider"></div>
+    <p style="text-align:center;font-size:13px;color:var(--text2)">
+      <span id="auth-switch-text">Não tem conta?</span>
+      <button onclick="toggleAuthMode()" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:13px;font-family:inherit;margin-left:4px" id="auth-switch-btn">Solicitar acesso</button>
+    </p>
+  </div>
+</div>
+
+<!-- PENDING PAGE -->
+<div id="pending-page">
+  <div class="pending-card">
+    <div style="font-size:3rem;margin-bottom:16px">⏳</div>
+    <h2>Aguardando aprovação</h2>
+    <p>Seu cadastro foi recebido com sucesso!</p>
+    <p>O administrador do sistema irá analisar sua solicitação em breve. Você receberá acesso assim que for aprovado.</p>
+    <div class="divider"></div>
+    <p style="font-size:12px;color:var(--textm)" id="pending-email-display"></p>
+    <button class="btn btn-s" style="margin-top:16px" onclick="doLogout()">Sair</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+<button class="hamburger" onclick="toggleSidebar()" id="hamburger-btn">☰</button>
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <h2>⚖️ LexCRM</h2>
+      <span>Gestão Jurídica</span>
+    </div>
+    <div class="sidebar-nav">
+      <button class="nav-item active" onclick="goTo('dashboard')" id="nav-dashboard">📊 Dashboard</button>
+      <div class="nav-section">Gestão</div>
+      <button class="nav-item" onclick="goTo('clientes')" id="nav-clientes">👥 Clientes</button>
+      <button class="nav-item" onclick="goTo('processos')" id="nav-processos">📁 Processos</button>
+      <button class="nav-item" onclick="goTo('documentos')" id="nav-documentos">📄 Documentos</button>
+      <div class="nav-section">Operacional</div>
+      <button class="nav-item" onclick="goTo('agenda')" id="nav-agenda">📅 Agenda & Prazos</button>
+      <button class="nav-item" onclick="goTo('financeiro')" id="nav-financeiro">💰 Financeiro</button>
+      <div class="nav-section">Análise</div>
+      <button class="nav-item" onclick="goTo('relatorios')" id="nav-relatorios">📈 Relatórios</button>
+      <div class="nav-section">Inteligência Artificial</div>
+      <button class="nav-item" onclick="goTo('ia')" id="nav-ia">🤖 Atendimento com IA</button>
+      <div id="admin-nav-section" style="display:none">
+        <div class="nav-section">Administração</div>
+        <button class="nav-item" onclick="goTo('admin')" id="nav-admin">🛡️ Painel Admin</button>
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="user-row">
+        <div class="avatar" id="user-avatar">U</div>
+        <div style="overflow:hidden">
+          <div class="user-email" id="user-email-display"></div>
+          <span id="admin-badge-display" style="display:none" class="admin-badge">ADMIN</span>
+        </div>
+      </div>
+      <button class="nav-item" onclick="doLogout()" style="color:var(--red)">🚪 Sair</button>
+    </div>
+  </nav>
+
+  <div class="main">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-hd">
+        <div><h1>Dashboard</h1><p id="dash-date"></p></div>
+      </div>
+      <div class="page-body">
+        <div class="grid g4" style="margin-bottom:24px">
+          <div class="stat-card" style="cursor:pointer" onclick="goTo('clientes')"><div class="stat-label">👥 Clientes</div><div class="stat-val blue" id="ds-clientes">0</div><div class="stat-sub">cadastrados</div></div>
+          <div class="stat-card" style="cursor:pointer" onclick="goTo('processos')"><div class="stat-label">📁 Processos Ativos</div><div class="stat-val gold" id="ds-processos">0</div><div class="stat-sub" id="ds-proc-sub">de 0 total</div></div>
+          <div class="stat-card" style="cursor:pointer" onclick="goTo('agenda')"><div class="stat-label">⚠️ Prazos Urgentes</div><div class="stat-val" id="ds-prazos" style="color:var(--green)">0</div><div class="stat-sub">próximos 7 dias</div></div>
+          <div class="stat-card" style="cursor:pointer" onclick="goTo('financeiro')"><div class="stat-label">💵 A Receber</div><div class="stat-val green" id="ds-receber">R$ 0</div><div class="stat-sub" id="ds-rec-sub">recebido: R$ 0</div></div>
+        </div>
+        <div class="grid g2" style="margin-bottom:24px">
+          <div class="card">
+            <div class="sec-hd"><div><div class="sec-title">Próximos Prazos</div><span class="gold-line"></span></div><button class="btn btn-g btn-sm" onclick="goTo('agenda')">Ver todos →</button></div>
+            <div id="dash-prazos"><div class="empty"><p>Nenhum prazo próximo</p></div></div>
+          </div>
+          <div class="card">
+            <div class="sec-hd"><div><div class="sec-title">Processos por Área</div><span class="gold-line"></span></div></div>
+            <canvas id="chart-area" height="160"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <div class="sec-hd"><div><div class="sec-title">Clientes Recentes</div><span class="gold-line"></span></div><button class="btn btn-g btn-sm" onclick="goTo('clientes')">Ver todos →</button></div>
+          <div id="dash-clientes-table"><div class="empty"><p>Nenhum cliente ainda</p></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CLIENTES -->
+    <div class="page" id="page-clientes">
+      <div class="page-hd">
+        <div><h1>Clientes</h1><p id="clientes-sub"></p></div>
+        <div class="hd-actions">
+          <div class="search"><span>🔍</span><input id="search-clientes" placeholder="Buscar clientes..." oninput="renderClientes()"/></div>
+          <button class="btn btn-p" onclick="openModal('cliente')">+ Novo Cliente</button>
+        </div>
+      </div>
+      <div class="page-body"><div id="clientes-table"><div class="loading"><div class="spin"></div>Carregando...</div></div></div>
+    </div>
+
+    <!-- PROCESSOS -->
+    <div class="page" id="page-processos">
+      <div class="page-hd">
+        <div><h1>Processos</h1><p id="processos-sub"></p></div>
+        <div class="hd-actions">
+          <div class="search"><span>🔍</span><input id="search-processos" placeholder="Buscar processos..." oninput="renderProcessos()"/></div>
+          <select class="fs" style="width:auto" id="filter-proc-status" onchange="renderProcessos()">
+            <option value="">Todos os status</option>
+            <option>Em andamento</option><option>Ativo</option><option>Suspenso</option><option>Arquivado</option><option>Encerrado</option><option>Acordo</option><option>Ganho</option><option>Perdido</option>
+          </select>
+          <select class="fs" style="width:auto;display:none" id="filter-proc-adv" onchange="renderProcessos()">
+            <option value="">Todos os advogados</option>
+          </select>
+          <button class="btn btn-p" onclick="openModal('processo')">+ Novo Processo</button>
+        </div>
+      </div>
+      <div class="page-body"><div id="processos-table"></div></div>
+    </div>
+
+    <!-- DOCUMENTOS -->
+    <div class="page" id="page-documentos">
+      <div class="page-hd">
+        <div><h1>Documentos</h1><p id="documentos-sub"></p></div>
+        <div class="hd-actions">
+          <div class="search"><span>🔍</span><input id="search-documentos" placeholder="Buscar documentos..." oninput="renderDocumentos()"/></div>
+          <button class="btn btn-p" onclick="openModal('documento')">+ Novo Documento</button>
+        </div>
+      </div>
+      <div class="page-body"><div id="documentos-table"></div></div>
+    </div>
+
+    <!-- AGENDA -->
+    <div class="page" id="page-agenda">
+      <div class="page-hd">
+        <div><h1>Agenda & Prazos</h1><p id="agenda-sub"></p></div>
+        <div class="hd-actions">
+          <div class="search"><span>🔍</span><input id="search-agenda" placeholder="Buscar eventos..." oninput="renderAgenda()"/></div>
+          <select class="fs" style="width:auto" id="filter-agenda-tipo" onchange="renderAgenda()">
+            <option value="">Todos os tipos</option>
+            <option>Audiência</option><option>Prazo processual</option><option>Reunião com cliente</option><option>Perícia</option><option>Protocolo</option><option>Despacho</option><option>Outro</option>
+          </select>
+          <select class="fs" style="width:auto" id="filter-agenda-status" onchange="renderAgenda()">
+            <option value="">Todos</option><option>Pendente</option><option>Concluído</option>
+          </select>
+          <button class="btn btn-p" onclick="openModal('evento')">+ Novo Evento</button>
+        </div>
+      </div>
+      <div class="page-body"><div id="agenda-warn"></div><div id="agenda-table"></div></div>
+    </div>
+
+    <!-- FINANCEIRO -->
+    <div class="page" id="page-financeiro">
+      <div class="page-hd">
+        <div><h1>Financeiro</h1><p>Honorários, receitas e despesas</p></div>
+        <div class="hd-actions">
+          <div class="search"><span>🔍</span><input id="search-fin" placeholder="Buscar lançamentos..." oninput="renderFinanceiro()"/></div>
+          <select class="fs" style="width:auto" id="filter-fin-tipo" onchange="renderFinanceiro()">
+            <option value="">Receitas e Despesas</option><option value="receita">Receitas</option><option value="despesa">Despesas</option>
+          </select>
+          <select class="fs" style="width:auto" id="filter-fin-status" onchange="renderFinanceiro()">
+            <option value="">Todos</option><option value="pago">Pago/Recebido</option><option value="pendente">Pendente</option>
+          </select>
+          <button class="btn btn-p" onclick="openModal('financeiro')">+ Novo Lançamento</button>
+        </div>
+      </div>
+      <div class="page-body">
+        <div class="grid g4" style="margin-bottom:24px">
+          <div class="stat-card"><div class="stat-label">📈 Receitas Recebidas</div><div class="stat-val green" id="fin-rec">R$ 0</div></div>
+          <div class="stat-card"><div class="stat-label">📉 Despesas Pagas</div><div class="stat-val red" id="fin-desp">R$ 0</div></div>
+          <div class="stat-card"><div class="stat-label">💵 A Receber</div><div class="stat-val gold" id="fin-arec">R$ 0</div></div>
+          <div class="stat-card"><div class="stat-label">💼 Saldo</div><div class="stat-val" id="fin-saldo">R$ 0</div></div>
+        </div>
+        <div id="financeiro-table"></div>
+      </div>
+    </div>
+
+    <!-- RELATORIOS -->
+    <div class="page" id="page-relatorios">
+      <div class="page-hd"><div><h1>Relatórios</h1><p>Visão geral do escritório</p></div></div>
+      <div class="page-body">
+        <div class="grid g4" style="margin-bottom:24px">
+          <div class="stat-card"><div class="stat-label">Total de Clientes</div><div class="stat-val blue" id="rel-cli">0</div></div>
+          <div class="stat-card"><div class="stat-label">Processos Ativos</div><div class="stat-val gold" id="rel-proc">0</div></div>
+          <div class="stat-card"><div class="stat-label">Processos Ganhos</div><div class="stat-val green" id="rel-ganhos">0</div></div>
+          <div class="stat-card"><div class="stat-label">Receita Total</div><div class="stat-val" style="font-size:1.4rem;color:var(--green)" id="rel-receita">R$ 0</div></div>
+        </div>
+        <div class="grid g2" style="margin-bottom:24px">
+          <div class="card"><div class="sec-title" style="margin-bottom:16px">Processos por Área</div><canvas id="chart-rel-area" height="200"></canvas></div>
+          <div class="card"><div class="sec-title" style="margin-bottom:16px">Status dos Processos</div><canvas id="chart-rel-status" height="200"></canvas></div>
+        </div>
+        <div class="card"><div class="sec-title" style="margin-bottom:16px">Receitas vs Despesas (mensal)</div><canvas id="chart-rel-fin" height="120"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ADMIN PANEL -->
+    <div class="page" id="page-admin">
+      <div class="page-hd">
+        <div><h1>🛡️ Painel Admin</h1><p>Gerencie os usuários do sistema</p></div>
+      </div>
+      <div class="page-body">
+        <div class="grid g3" style="margin-bottom:24px">
+          <div class="stat-card"><div class="stat-label">Total de Usuários</div><div class="stat-val blue" id="adm-total">0</div></div>
+          <div class="stat-card"><div class="stat-label">✅ Aprovados</div><div class="stat-val green" id="adm-aprovados">0</div></div>
+          <div class="stat-card"><div class="stat-label">⏳ Pendentes</div><div class="stat-val gold" id="adm-pendentes">0</div></div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px">
+          <div class="sec-hd"><div><div class="sec-title">Solicitações Pendentes</div><span class="gold-line"></span></div></div>
+          <div id="admin-pendentes-list"><div class="empty"><p>Nenhuma solicitação pendente</p></div></div>
+        </div>
+
+        <div class="card">
+          <div class="sec-hd"><div><div class="sec-title">Todos os Usuários</div><span class="gold-line"></span></div></div>
+          <div id="admin-users-list"><div class="loading"><div class="spin"></div>Carregando...</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- IA JURÍDICA -->
+    <div class="page" id="page-ia">
+      <div class="page-hd">
+        <div><h1>🤖 Atendimento com IA</h1><p>Coleta inteligente de informações e geração automática de documentos jurídicos</p></div>
+        <div class="hd-actions">
+          <button class="btn btn-s" onclick="showIaConfig()">⚙️ Configurar API</button>
+          <button class="btn btn-p" onclick="novoAtendimentoIA()">+ Novo Atendimento</button>
+        </div>
+      </div>
+      <div class="page-body">
+        <!-- API KEY WARNING -->
+        <div id="ia-api-warning" style="display:none" class="warn-bar" style="margin-bottom:16px">
+          ⚠️ Chave de API não configurada. Clique em <strong>⚙️ Configurar API</strong> para ativar a IA.
+        </div>
+
+        <!-- STATS -->
+        <div class="grid g4" style="margin-bottom:24px">
+          <div class="stat-card"><div class="stat-label">📋 Atendimentos</div><div class="stat-val blue" id="ia-total">0</div><div class="stat-sub">realizados</div></div>
+          <div class="stat-card"><div class="stat-label">✅ Casos Completos</div><div class="stat-val green" id="ia-completos">0</div><div class="stat-sub">docs gerados</div></div>
+          <div class="stat-card"><div class="stat-label">⏳ Pendentes</div><div class="stat-val gold" id="ia-pendentes">0</div><div class="stat-sub">aguardando info</div></div>
+          <div class="stat-card"><div class="stat-label">📄 Documentos</div><div class="stat-val" style="color:var(--blue)" id="ia-docs">0</div><div class="stat-sub">gerados pela IA</div></div>
+        </div>
+
+        <!-- ATENDIMENTOS LIST -->
+        <div class="card">
+          <div class="sec-hd">
+            <div><div class="sec-title">Atendimentos Recentes</div><span class="gold-line"></span></div>
+          </div>
+          <div id="ia-atendimentos-list"><div class="empty"><div class="ic">🤖</div><h3>Nenhum atendimento ainda</h3><p>Clique em "Novo Atendimento" para iniciar</p></div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="modal-container"></div>
+
+<script>
+// ============================================================
+// FIREBASE CONFIG
+// ============================================================
+const ADMIN_EMAIL = 'itamardevasconcelos90@gmail.com';
+
+firebase.initializeApp({
+  apiKey: "AIzaSyDHuESOnmEmfvaapJ-lkaRZAI1B0DCmkdg",
+  authDomain: "crm-advmelgaco.firebaseapp.com",
+  projectId: "crm-advmelgaco",
+  storageBucket: "crm-advmelgaco.firebasestorage.app",
+  messagingSenderId: "661761269238",
+  appId: "1:661761269238:web:494db0d149cca070507bd7"
+});
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// ============================================================
+// CLOUDINARY CONFIG — substitui Firebase Storage (grátis, sem cartão)
+// 1. Crie conta em https://cloudinary.com (grátis)
+// 2. No dashboard, copie seu "Cloud name"
+// 3. Vá em Settings > Upload > Add upload preset
+//    - Signing mode: "Unsigned"
+//    - Anote o nome do preset
+// 4. Substitua os valores abaixo:
+// ============================================================
+const CLOUDINARY_CLOUD_NAME = 'djztsoor';
+const CLOUDINARY_UPLOAD_PRESET = 'lexcrm_docs';
+
+// ============================================================
+// CRIPTOGRAFIA AES-256 COM CHAVE MESTRA DO ADMIN
+//
+// FLUXO:
+// 1. Cada usuário tem uma CHAVE ÚNICA gerada aleatoriamente no cadastro
+// 2. Essa chave é criptografada COM a senha do usuário → salva no Firebase
+// 3. Essa mesma chave é criptografada COM a senha do ADMIN → salva no Firebase
+// 4. Na sessão, a chave é carregada e descriptografada com a senha do usuário
+// 5. Recuperação: admin descriptografa a chave do usuário com sua senha
+//    e define uma nova senha → recriptografa a chave com a nova senha
+// ============================================================
+let CRYPTO_KEY = null; // chave ativa na sessão (nunca sai do navegador)
+const ADMIN_MASTER_SALT = 'lexcrm_master_v1';
+
+function deriveKey(password, salt) {
+  const s = CryptoJS.enc.Utf8.parse(salt);
+  return CryptoJS.PBKDF2(password, s, { keySize: 256/32, iterations: 10000 }).toString();
+}
+
+// Gera chave aleatória única para o usuário
+function generateUserKey() {
+  const arr = new Uint8Array(32);
+  crypto.getRandomValues(arr);
+  return Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+// Salva chave do usuário criptografada com senha dele + com senha do admin
+async function storeUserKey(uid, userPassword, userKey) {
+  const userSalt = uid + '_user_v1';
+  const adminSalt = ADMIN_MASTER_SALT;
+  const encWithUser  = CryptoJS.AES.encrypt(userKey, deriveKey(userPassword, userSalt)).toString();
+  // Busca senha do admin armazenada como hash para criptografar
+  // A chave mestra do admin é derivada do email do admin + salt fixo
+  const adminKeyRef = await db.collection('_system').doc('admin_key').get();
+  const adminDerivedKey = adminKeyRef.exists ? adminKeyRef.data().key : null;
+  let encWithAdmin = null;
+  if (adminDerivedKey) {
+    encWithAdmin = CryptoJS.AES.encrypt(userKey, adminDerivedKey).toString();
+  }
+  await db.collection('_chaves').doc(uid).set({
+    encWithUser,
+    encWithAdmin,
+    uid,
+    atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+  });
+}
+
+// Carrega e descriptografa a chave do usuário com a senha dele
+async function loadUserKey(uid, userPassword) {
+  const snap = await db.collection('_chaves').doc(uid).get();
+  if (!snap.exists) return null;
+  const { encWithUser } = snap.data();
+  const userSalt = uid + '_user_v1';
+  try {
+    const bytes = CryptoJS.AES.decrypt(encWithUser, deriveKey(userPassword, userSalt));
+    const key = bytes.toString(CryptoJS.enc.Utf8);
+    return key || null;
+  } catch(e) { return null; }
+}
+
+// Admin registra sua chave mestra (feito uma vez na inicialização)
+async function setupAdminMasterKey(adminPassword) {
+  const adminDerivedKey = deriveKey(adminPassword, ADMIN_MASTER_SALT + '_admin');
+  await db.collection('_system').doc('admin_key').set({
+    key: adminDerivedKey,
+    atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  return adminDerivedKey;
+}
+
+function encrypt(value) {
+  if (!CRYPTO_KEY || value === undefined || value === null || value === '') return value;
+  try {
+    return CryptoJS.AES.encrypt(String(value), CRYPTO_KEY).toString();
+  } catch(e) { return value; }
+}
+
+function decrypt(value) {
+  if (!CRYPTO_KEY || !value || typeof value !== 'string') return value;
+  // Se não parecer dado criptografado, retorna como está
+  if (!value.includes('U2FsdGVk') && value.length < 30) return value;
+  try {
+    const bytes = CryptoJS.AES.decrypt(value, CRYPTO_KEY);
+    const dec = bytes.toString(CryptoJS.enc.Utf8);
+    return dec || value;
+  } catch(e) { return value; }
+}
+
+// Campos que NÃO devem ser criptografados (usados internamente pelo sistema)
+const SKIP_ENCRYPT = new Set(['uid','criadoEm','atualizadoEm','id','arquivos','url','path','publicId','tamanho','nome_arquivo']);
+
+function encryptDoc(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  const result = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (SKIP_ENCRYPT.has(k) || v === null || v === undefined) {
+      result[k] = v;
+    } else if (Array.isArray(v)) {
+      // arrays (ex: arquivos) não criptografar estrutura, apenas campos internos sensíveis
+      result[k] = v;
+    } else if (typeof v === 'object') {
+      result[k] = encryptDoc(v);
+    } else {
+      result[k] = encrypt(String(v));
+    }
+  }
+  return result;
+}
+
+function decryptDoc(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  const result = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (SKIP_ENCRYPT.has(k) || v === null || v === undefined) {
+      result[k] = v;
+    } else if (Array.isArray(v)) {
+      result[k] = v;
+    } else if (typeof v === 'object') {
+      result[k] = decryptDoc(v);
+    } else {
+      result[k] = decrypt(v);
+    }
+  }
+  return result;
+}
+
+let currentUser = null;
+let isAdmin = false;
+let DATA = { clientes:[], processos:[], eventos:[], financeiro:[], documentos:[], atendimentos:[] };
+let unsubs = [];
+let editingId = null;
+let authMode = 'login';
+let charts = {};
+let _sessionPassword = null; // senha mantida em memória durante a sessão
+
+// ===== AUTH =====
+function toggleAuthMode() {
+  authMode = authMode === 'login' ? 'register' : 'login';
+  document.getElementById('auth-btn').textContent = authMode === 'login' ? 'Entrar' : 'Solicitar Acesso';
+  document.getElementById('auth-switch-text').textContent = authMode === 'login' ? 'Não tem conta?' : 'Já tem conta?';
+  document.getElementById('auth-switch-btn').textContent = authMode === 'login' ? 'Solicitar acesso' : 'Fazer login';
+  document.getElementById('auth-name-group').style.display = authMode === 'register' ? 'flex' : 'none';
+  document.getElementById('auth-oab-group').style.display = authMode === 'register' ? 'flex' : 'none';
+  document.getElementById('auth-alert').innerHTML = '';
+}
+
+async function doAuth() {
+  const email = document.getElementById('auth-email').value.trim();
+  const pass = document.getElementById('auth-pass').value;
+  const name = document.getElementById('auth-name').value.trim();
+  const oab = document.getElementById('auth-oab').value.trim();
+  const alertEl = document.getElementById('auth-alert');
+  alertEl.innerHTML = '';
+  try {
+    if (authMode === 'login') {
+      _sessionPassword = pass;
+      await auth.signInWithEmailAndPassword(email, pass);
+    } else {
+      if (!name) { alertEl.innerHTML = '<div class="alert alert-e">Informe seu nome completo.</div>'; return; }
+      _sessionPassword = pass;
+      const cred = await auth.createUserWithEmailAndPassword(email, pass);
+      await db.collection('usuarios').doc(cred.user.uid).set({
+        uid: cred.user.uid,
+        email: email,
+        nome: name,
+        oab: oab || '',
+        status: email === ADMIN_EMAIL ? 'aprovado' : 'pendente',
+        role: email === ADMIN_EMAIL ? 'admin' : 'user',
+        criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      // Notifica admin sobre nova solicitação
+      if (email !== ADMIN_EMAIL) notifyAdminNewUser(name, email);
+      // Gera e salva chave única do usuário
+      const userKey = generateUserKey();
+      await storeUserKey(cred.user.uid, pass, userKey);
+      // Se for o admin, registra chave mestra
+      if (email === ADMIN_EMAIL) {
+        await setupAdminMasterKey(pass);
+      }
+    }
+  } catch(e) {
+    _sessionPassword = null;
+    const msgs = {
+      'auth/user-not-found':'Usuário não encontrado.',
+      'auth/wrong-password':'Senha incorreta.',
+      'auth/email-already-in-use':'E-mail já em uso.',
+      'auth/weak-password':'Senha deve ter pelo menos 6 caracteres.',
+      'auth/invalid-email':'E-mail inválido.',
+      'auth/invalid-credential':'Credenciais inválidas.',
+    };
+    alertEl.innerHTML = `<div class="alert alert-e">${msgs[e.code]||'Erro ao autenticar.'}</div>`;
+  }
+}
+
+document.getElementById('auth-pass').addEventListener('keydown', e => { if(e.key==='Enter') doAuth(); });
+
+async function doLogout() {
+  unsubs.forEach(u=>u()); unsubs=[];
+  DATA = { clientes:[], processos:[], eventos:[], financeiro:[], documentos:[] };
+  CRYPTO_KEY = null;
+  _sessionPassword = null;
+  await auth.signOut();
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('pending-page').style.display = 'none';
+  document.getElementById('auth-page').style.display = 'flex';
+}
+
+auth.onAuthStateChanged(async user => {
+  currentUser = user;
+  if (!user) {
+    document.getElementById('auth-page').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('pending-page').style.display = 'none';
+    return;
+  }
+
+  // Check user status in Firestore
+  try {
+    const userDoc = await db.collection('usuarios').doc(user.uid).get();
+    if (!userDoc.exists) {
+      // Admin auto-approve
+      if (user.email === ADMIN_EMAIL) {
+        await db.collection('usuarios').doc(user.uid).set({
+          uid: user.uid, email: user.email, nome: 'Administrador',
+          status: 'aprovado', role: 'admin',
+          criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        showApp(user);
+      } else {
+        showPending(user);
+      }
+      return;
+    }
+
+    const userData = userDoc.data();
+    if (userData.status === 'aprovado') {
+      await showApp(user, userData);
+    } else if (userData.status === 'bloqueado') {
+      document.getElementById('auth-page').style.display = 'flex';
+      document.getElementById('auth-alert').innerHTML = '<div class="alert alert-e">Seu acesso foi bloqueado. Entre em contato com o administrador.</div>';
+      await auth.signOut();
+    } else {
+      showPending(user);
+    }
+  } catch(e) {
+    console.error(e);
+    showPending(user);
+  }
+});
+
+function showPending(user) {
+  document.getElementById('auth-page').style.display = 'none';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('pending-page').style.display = 'flex';
+  document.getElementById('pending-email-display').textContent = `Conta: ${user.email}`;
+}
+
+async function showApp(user, userData) {
+  // Carrega chave de criptografia do usuário
+  if (_sessionPassword) {
+    const userKey = await loadUserKey(user.uid, _sessionPassword);
+    if (userKey) {
+      CRYPTO_KEY = userKey;
+    } else {
+      // Usuário antigo sem chave — gera e salva agora
+      const newKey = generateUserKey();
+      await storeUserKey(user.uid, _sessionPassword, newKey);
+      CRYPTO_KEY = newKey;
+    }
+    _sessionPassword = null;
+  }
+  isAdmin = user.email === ADMIN_EMAIL || userData?.role === 'admin';
+  document.getElementById('auth-page').style.display = 'none';
+  document.getElementById('pending-page').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('user-email-display').textContent = user.email;
+  document.getElementById('user-avatar').textContent = user.email[0].toUpperCase();
+
+  if (isAdmin) {
+    document.getElementById('admin-nav-section').style.display = 'block';
+    document.getElementById('admin-badge-display').style.display = 'inline-flex';
+    const advFilter = document.getElementById('filter-proc-adv');
+    if (advFilter) advFilter.style.display = 'block';
+  }
+
+  initListeners();
+  setDashDate();
+  // Verifica prazos urgentes e notifica por e-mail (1x por sessão)
+  setTimeout(checkAndNotifyDeadlines, 5000);
+  setTimeout(updateAdvFilter, 3000);
+}
+
+function updateAdvFilter() {
+  const el = document.getElementById('filter-proc-adv');
+  if (!el || !isAdmin) return;
+  const advs = [...new Set(DATA.processos.map(p=>p.advogado_responsavel).filter(Boolean))].sort();
+  el.innerHTML = '<option value="">Todos os advogados</option>' + advs.map(a=>`<option value="${a}">${a}</option>`).join('');
+}
+
+// ===== FIRESTORE =====
+function initListeners() {
+  const cols = ['clientes','processos','eventos','financeiro','documentos','atendimentos'];
+  cols.forEach(col => {
+    const u = db.collection(col)
+      .where('uid','==',currentUser.uid)
+      .orderBy('criadoEm','desc')
+      .onSnapshot(snap => {
+        DATA[col] = snap.docs.map(d=>decryptDoc({id:d.id,...d.data()}));
+        refreshAll();
+      }, () => {
+        db.collection(col).where('uid','==',currentUser.uid).onSnapshot(snap => {
+          DATA[col] = snap.docs.map(d=>decryptDoc({id:d.id,...d.data()}));
+          refreshAll();
+        });
+      });
+    unsubs.push(u);
+  });
+}
+
+async function saveDoc(col, data, id=null) {
+  const ts = firebase.firestore.FieldValue.serverTimestamp();
+  const encrypted = encryptDoc(data);
+  if (id) {
+    await db.collection(col).doc(id).update({...encrypted, atualizadoEm:ts});
+    return id;
+  } else {
+    const ref = await db.collection(col).add({...encrypted, uid:currentUser.uid, criadoEm:ts, atualizadoEm:ts});
+    return ref.id;
+  }
+}
+
+async function delDoc(col, id) { await db.collection(col).doc(id).delete(); }
+
+// ===== ADMIN FUNCTIONS =====
+async function loadAdminPanel() {
+  if (!isAdmin) return;
+  const snap = await db.collection('usuarios').orderBy('criadoEm','desc').get();
+  const users = snap.docs.map(d=>({id:d.id,...d.data()}));
+  const pendentes = users.filter(u=>u.status==='pendente');
+  const aprovados = users.filter(u=>u.status==='aprovado');
+
+  document.getElementById('adm-total').textContent = users.length;
+  document.getElementById('adm-aprovados').textContent = aprovados.length;
+  document.getElementById('adm-pendentes').textContent = pendentes.length;
+
+  // Pending list
+  const pendEl = document.getElementById('admin-pendentes-list');
+  if (!pendentes.length) {
+    pendEl.innerHTML = '<div class="empty" style="padding:30px 0"><p>Nenhuma solicitação pendente ✅</p></div>';
+  } else {
+    pendEl.innerHTML = pendentes.map(u=>`
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg2);border:1px solid rgba(201,168,76,.2);border-radius:10px;margin-bottom:8px">
+        <div>
+          <div style="font-weight:500;font-size:14px">${u.nome||u.email}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">${u.email} ${u.oab?'• '+u.oab:''}</div>
+        </div>
+        <div class="flex">
+          <button class="btn btn-success btn-sm" onclick="approveUser('${u.id}')">✅ Aprovar</button>
+          <button class="btn btn-d btn-sm" onclick="blockUser('${u.id}')">🚫 Recusar</button>
+        </div>
+      </div>`).join('');
+  }
+
+  // All users
+  const usersEl = document.getElementById('admin-users-list');
+  usersEl.innerHTML = `<div class="tw" style="border:none"><table><thead><tr><th>Nome</th><th>E-mail</th><th>OAB</th><th>Status</th><th>Ações</th></tr></thead><tbody>
+    ${users.map(u=>`<tr>
+      <td style="font-weight:500">${u.nome||'—'} ${u.role==='admin'?'<span class="admin-badge">ADMIN</span>':''}</td>
+      <td style="color:var(--text2)">${u.email}</td>
+      <td style="color:var(--text2)">${u.oab||'—'}</td>
+      <td><span class="badge ${u.status==='aprovado'?'bg':u.status==='pendente'?'by':'br'}">${u.status}</span></td>
+      <td><div class="flex">
+        ${u.status!=='aprovado'?`<button class="btn btn-success btn-sm" onclick="approveUser('${u.id}')">Aprovar</button>`:''}
+        ${u.status!=='bloqueado'&&u.email!==ADMIN_EMAIL?`<button class="btn btn-d btn-sm" onclick="blockUser('${u.id}')">Bloquear</button>`:''}
+        ${u.email!==ADMIN_EMAIL?`<button class="btn btn-s btn-sm" onclick="showRecoveryModal('${u.id}','${u.email}')">🔑 Recuperar</button>`:''}
+      </div></td>
+    </tr>`).join('')}
+  </tbody></table></div>`;
+}
+
+async function approveUser(id) {
+  await db.collection('usuarios').doc(id).update({ status: 'aprovado' });
+  loadAdminPanel();
+}
+
+async function blockUser(id) {
+  if (confirm('Deseja bloquear este usuário?')) {
+    await db.collection('usuarios').doc(id).update({ status: 'bloqueado' });
+    loadAdminPanel();
+  }
+}
+
+// ===== RECUPERAÇÃO DE SENHA (CHAVE MESTRA) =====
+function showRecoveryModal(userId, userEmail) {
+  document.getElementById('modal-container').innerHTML = `
+    <div class="overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <div class="mhd"><h3>🔑 Recuperar Acesso — ${userEmail}</h3><button class="btn btn-g btn-ic" onclick="closeModal()">✕</button></div>
+        <div class="mbody">
+          <div class="alert" style="background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.3);color:var(--goldl);margin-bottom:16px">
+            ⚠️ Digite sua senha de admin para recuperar o acesso deste usuário. Os dados dele serão preservados.
+          </div>
+          <div class="fg">
+            <label class="fl">Sua senha de admin</label>
+            <input class="fi" type="password" id="recovery-admin-pass" placeholder="Sua senha atual"/>
+          </div>
+          <div class="fg">
+            <label class="fl">Nova senha para o usuário</label>
+            <input class="fi" type="password" id="recovery-new-pass" placeholder="Mínimo 6 caracteres"/>
+          </div>
+          <div class="fg">
+            <label class="fl">Confirmar nova senha</label>
+            <input class="fi" type="password" id="recovery-confirm-pass" placeholder="Repita a nova senha"/>
+          </div>
+          <div id="recovery-alert"></div>
+        </div>
+        <div class="mfoot">
+          <button class="btn btn-s" onclick="closeModal()">Cancelar</button>
+          <button class="btn btn-p" onclick="executeRecovery('${userId}', '${userEmail}')">🔓 Recuperar Acesso</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function executeRecovery(userId, userEmail) {
+  const adminPass = document.getElementById('recovery-admin-pass').value;
+  const newPass = document.getElementById('recovery-new-pass').value;
+  const confirmPass = document.getElementById('recovery-confirm-pass').value;
+  const alertEl = document.getElementById('recovery-alert');
+
+  if (!adminPass || !newPass || !confirmPass) {
+    alertEl.innerHTML = '<div class="alert alert-e">Preencha todos os campos.</div>'; return;
+  }
+  if (newPass !== confirmPass) {
+    alertEl.innerHTML = '<div class="alert alert-e">As senhas não coincidem.</div>'; return;
+  }
+  if (newPass.length < 6) {
+    alertEl.innerHTML = '<div class="alert alert-e">A nova senha deve ter pelo menos 6 caracteres.</div>'; return;
+  }
+
+  alertEl.innerHTML = '<div class="alert" style="background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.3);color:var(--goldl)">🔄 Processando...</div>';
+
+  try {
+    // 1. Busca chave mestra do admin
+    const adminKeyRef = await db.collection('_system').doc('admin_key').get();
+    if (!adminKeyRef.exists) throw new Error('Chave mestra não encontrada.');
+    const storedAdminKey = adminKeyRef.data().key;
+
+    // 2. Verifica senha do admin re-derivando
+    const adminDerivedKey = deriveKey(adminPass, ADMIN_MASTER_SALT + '_admin');
+    if (adminDerivedKey !== storedAdminKey) {
+      alertEl.innerHTML = '<div class="alert alert-e">Senha de admin incorreta.</div>'; return;
+    }
+
+    // 3. Busca chave do usuário criptografada com chave do admin
+    const chaveSnap = await db.collection('_chaves').doc(userId).get();
+    if (!chaveSnap.exists) throw new Error('Chave do usuário não encontrada.');
+    const { encWithAdmin } = chaveSnap.data();
+    if (!encWithAdmin) throw new Error('Backup de chave não disponível para este usuário.');
+
+    // 4. Descriptografa chave do usuário usando chave do admin
+    const bytes = CryptoJS.AES.decrypt(encWithAdmin, adminDerivedKey);
+    const userKey = bytes.toString(CryptoJS.enc.Utf8);
+    if (!userKey) throw new Error('Falha ao descriptografar chave do usuário.');
+
+    // 5. Recriptografa chave do usuário com a NOVA senha
+    const newUserSalt = userId + '_user_v1';
+    const encWithNewPass = CryptoJS.AES.encrypt(userKey, deriveKey(newPass, newUserSalt)).toString();
+
+    // 6. Atualiza no Firestore
+    await db.collection('_chaves').doc(userId).update({
+      encWithUser: encWithNewPass,
+      atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    // 7. Atualiza senha no Firebase Auth (requer função admin — orienta o admin)
+    alertEl.innerHTML = `<div class="alert alert-s">
+      ✅ Chave recuperada com sucesso!<br><br>
+      <strong>Próximo passo:</strong> Vá no <a href="https://console.firebase.google.com/project/crm-advmelgaco/authentication/users" target="_blank" style="color:var(--goldl)">Firebase Authentication</a>, 
+      encontre o usuário <strong>${userEmail}</strong> e clique em "Redefinir senha" para enviar o e-mail de redefinição.<br><br>
+      O usuário deve usar a nova senha: <strong>${newPass}</strong>
+    </div>`;
+
+  } catch(err) {
+    console.error(err);
+    alertEl.innerHTML = `<div class="alert alert-e">Erro: ${err.message}</div>`;
+  }
+}
+
+// ============================================================
+// IA JURÍDICA — MÓDULO COMPLETO
+// ============================================================
+
+// Cole sua chave Anthropic aqui OU configure pelo painel
+let GEMINI_API_KEY = localStorage.getItem('lex_gemini_key') || 'AIzaSyC71v8RY2D6yWwkX3t6_d5zHf-Ycr82aOg';
+
+const AREAS_JURIDICAS = ['Previdenciário','Trabalhista','Cível','Criminal','Família','Tributário','Empresarial','Consumidor','Imobiliário','Outro'];
+
+// Estado do atendimento atual
+let iaState = {
+  msgs: [],
+  area: '',
+  dadosCliente: {},
+  docsGerados: {},
+  atendimentoId: null,
+  fase: 'inicio' // inicio > area > coleta > parecer > documentos > concluido
+};
+
+function showIaConfig() {
+  document.getElementById('modal-container').innerHTML = `
+    <div class="overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <div class="mhd"><h3>⚙️ Configurar API de IA</h3><button class="btn btn-g btn-ic" onclick="closeModal()">✕</button></div>
+        <div class="mbody">
+          <div class="alert" style="background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.3);color:var(--goldl);margin-bottom:16px">
+            🔑 Obtenha sua chave gratuita em <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--goldl)">aistudio.google.com</a> → Criar chave de API
+          </div>
+          <div class="fg">
+            <label class="fl">Chave API Google Gemini (gratuita)</label>
+            <input class="fi" type="password" id="cfg-api-key" placeholder="AIzaSy..." value="${GEMINI_API_KEY}"/>
+          </div>
+          <div id="cfg-status"></div>
+        </div>
+        <div class="mfoot">
+          <button class="btn btn-s" onclick="closeModal()">Cancelar</button>
+          <button class="btn btn-p" onclick="salvarApiKey()">💾 Salvar</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function salvarApiKey() {
+  const key = document.getElementById('cfg-api-key').value.trim();
+  if (!key.startsWith('AIza')) {
+    document.getElementById('cfg-status').innerHTML = '<div class="alert alert-e">Chave inválida. Deve começar com AIza</div>';
+    return;
+  }
+  GEMINI_API_KEY = key;
+  localStorage.setItem('lex_gemini_key', key);
+  document.getElementById('cfg-status').innerHTML = '<div class="alert alert-s">✅ Chave salva com sucesso!</div>';
+  document.getElementById('ia-api-warning').style.display = 'none';
+  setTimeout(closeModal, 1200);
+}
+
+function novoAtendimentoIA() {
+  if (!GEMINI_API_KEY) {
+    document.getElementById('ia-api-warning').style.display = 'flex';
+    showIaConfig();
+    return;
+  }
+  iaState = { msgs:[], area:'', dadosCliente:{}, docsGerados:{}, atendimentoId:null, fase:'inicio' };
+  abrirChatIA();
+}
+
+function abrirAtendimento(id) {
+  // Reabre atendimento salvo
+  const atend = DATA.atendimentos?.find(a=>a.id===id);
+  if (!atend) return;
+  iaState = {
+    msgs: atend.msgs||[],
+    area: atend.area||'',
+    dadosCliente: atend.dadosCliente||{},
+    docsGerados: atend.docsGerados||{},
+    atendimentoId: id,
+    fase: atend.fase||'concluido'
+  };
+  abrirChatIA(true);
+}
+
+function abrirChatIA(reabrir=false) {
+  document.getElementById('modal-container').innerHTML = `
+    <div class="overlay" onclick="">
+      <div class="modal modal-lg" style="max-width:820px;max-height:95vh">
+        <div class="mhd">
+          <h3>🤖 Atendimento Jurídico com IA</h3>
+          <div class="flex">
+            <span id="ia-area-badge" class="badge bb" style="${iaState.area?'':'display:none'}">${iaState.area}</span>
+            <button class="btn btn-g btn-ic" onclick="fecharChatIA()">✕</button>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr ${iaState.docsGerados&&Object.keys(iaState.docsGerados).length?'1fr':'0fr'};gap:0;transition:all .3s" id="ia-layout">
+          <div class="ia-chat" style="border-radius:0;border:none;border-right:1px solid var(--border)">
+            <div class="ia-chat-msgs" id="ia-msgs"></div>
+            <div class="ia-chat-input">
+              <textarea id="ia-input" rows="2" placeholder="Digite sua resposta..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviarMsgIA()}"></textarea>
+              <button class="btn btn-p" onclick="enviarMsgIA()" style="align-self:flex-end">Enviar</button>
+            </div>
+          </div>
+          <div id="ia-docs-panel" style="overflow-y:auto;padding:${iaState.docsGerados&&Object.keys(iaState.docsGerados).length?'20px':'0'}">
+            <div id="ia-docs-content"></div>
+          </div>
+        </div>
+        <div class="mfoot" style="justify-content:space-between">
+          <div class="flex" id="ia-footer-actions"></div>
+          <button class="btn btn-s" onclick="fecharChatIA()">Fechar</button>
+        </div>
+      </div>
+    </div>`;
+
+  // Renderiza msgs existentes ou inicia
+  if (reabrir && iaState.msgs.length) {
+    iaState.msgs.forEach(m => addMsgUI(m.role, m.content));
+    renderDocsGerados();
+  } else {
+    iniciarConversaIA();
+  }
+}
+
+function fecharChatIA() {
+  closeModal();
+  renderIaPage();
+}
+
+function addMsgUI(role, text) {
+  const msgs = document.getElementById('ia-msgs');
+  if (!msgs) return;
+  const div = document.createElement('div');
+  div.className = `ia-msg ia-msg-${role==='assistant'?'bot':role==='system'?'system':'user'}`;
+  div.innerHTML = text.replace(/\n/g,'<br/>');
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function showTyping() {
+  const msgs = document.getElementById('ia-msgs');
+  if (!msgs) return;
+  const div = document.createElement('div');
+  div.className = 'ia-typing'; div.id = 'ia-typing';
+  div.innerHTML = '<span></span><span></span><span></span>';
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function removeTyping() {
+  document.getElementById('ia-typing')?.remove();
+}
+
+async function iniciarConversaIA() {
+  const boas_vindas = `Olá! 👋 Sou o assistente jurídico virtual do escritório.\n\nVou coletar as informações necessárias para o seu atendimento e gerar os documentos iniciais.\n\nPrimeiro, me informe o **nome completo** do cliente:`;
+  addMsgUI('assistant', boas_vindas);
+  iaState.msgs.push({role:'assistant', content: boas_vindas});
+  iaState.fase = 'nome';
+}
+
+async function enviarMsgIA() {
+  const input = document.getElementById('ia-input');
+  const texto = input?.value?.trim();
+  if (!texto) return;
+  input.value = '';
+  addMsgUI('user', texto);
+  iaState.msgs.push({role:'user', content: texto});
+
+  // Fluxo guiado por fase
+  if (iaState.fase === 'nome') {
+    iaState.dadosCliente.nome = texto;
+    iaState.fase = 'cpf';
+    const r = `Obrigado, **${texto}**! 👤\n\nAgora informe o **CPF** do cliente:`;
+    addMsgUI('assistant', r);
+    iaState.msgs.push({role:'assistant',content:r});
+    return;
+  }
+  if (iaState.fase === 'cpf') {
+    iaState.dadosCliente.cpf = texto;
+    iaState.fase = 'area';
+    const opts = AREAS_JURIDICAS.map((a,i)=>`${i+1}. ${a}`).join('\n');
+    const r = `Perfeito! 📋\n\nQual é a **área jurídica** do caso?\n\n${opts}\n\nDigite o número ou o nome da área:`;
+    addMsgUI('assistant', r);
+    iaState.msgs.push({role:'assistant',content:r});
+    return;
+  }
+  if (iaState.fase === 'area') {
+    const num = parseInt(texto);
+    iaState.area = !isNaN(num) && num>=1 && num<=AREAS_JURIDICAS.length ? AREAS_JURIDICAS[num-1] : texto;
+    const badge = document.getElementById('ia-area-badge');
+    if (badge) { badge.textContent = iaState.area; badge.style.display='inline-flex'; }
+    iaState.fase = 'depoimento';
+    const r = `Área: **${iaState.area}** ✅\n\nAgora peço que o cliente descreva com detalhes o que aconteceu. Quanto mais informações, melhor o parecer:\n\n📝 *Descreva o caso, datas importantes, valores envolvidos e o que deseja juridicamente:*`;
+    addMsgUI('assistant', r);
+    iaState.msgs.push({role:'assistant',content:r});
+    return;
+  }
+  if (iaState.fase === 'depoimento') {
+    iaState.dadosCliente.depoimento = texto;
+    iaState.fase = 'processando';
+    await processarComIA();
+    return;
+  }
+  if (iaState.fase === 'concluido') {
+    // Pergunta livre pós-atendimento
+    await callIA([...iaState.msgs]);
+    return;
+  }
+}
+
+async function processarComIA() {
+  showTyping();
+
+  const systemPrompt = `Você é um assistente jurídico especializado em ${iaState.area}. 
+Analise o caso apresentado e forneça:
+1. Um PARECER JURÍDICO PRELIMINAR claro e objetivo (máx 300 palavras)
+2. Os PONTOS FORTES do caso
+3. Os PONTOS DE ATENÇÃO / riscos
+4. PRÓXIMOS PASSOS recomendados
+5. Se identifica alguma urgência processual
+
+Seja direto, profissional e use linguagem acessível ao cliente.
+Ao final, pergunte se há mais alguma informação relevante ou se pode prosseguir para gerar os documentos.`;
+
+  try {
+    const parecer = await callGemini(systemPrompt + '\n\nCliente: ' + iaState.dadosCliente.nome + '\nCPF: ' + iaState.dadosCliente.cpf + '\nDepoimento: ' + iaState.dadosCliente.depoimento);
+    removeTyping();
+    iaState.dadosCliente.parecer = parecer;
+    iaState.fase = 'confirmacao';
+    addMsgUI('assistant', parecer);
+    iaState.msgs.push({role:'assistant',content:parecer});
+
+    // Botão para gerar documentos
+    const footer = document.getElementById('ia-footer-actions');
+    if (footer) footer.innerHTML = `
+      <button class="btn btn-p" onclick="gerarDocumentosIA()">📄 Gerar Documentos Automaticamente</button>
+      <button class="btn btn-s" onclick="salvarAtendimento('pendente')">💾 Salvar como Pendente</button>`;
+  } catch(e) {
+    removeTyping();
+    addMsgUI('system', `❌ Erro na API: ${e.message}. Verifique sua chave em ⚙️ Configurar API.`);
+    iaState.fase = 'depoimento';
+  }
+}
+
+// Função central Gemini
+async function callGemini(prompt) {
+  const models = ['gemini-2.0-flash','gemini-2.0-flash-lite','gemini-1.5-flash-8b','gemini-1.5-flash'];
+  let lastError = '';
+  for (const model of models) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          contents:[{ role:'user', parts:[{ text: prompt }] }],
+          generationConfig:{ maxOutputTokens:1200, temperature:0.7 }
+        })
+      });
+      const data = await resp.json();
+      if (data.error) { lastError = data.error.message; continue; }
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) return text;
+      lastError = 'Resposta vazia';
+    } catch(e) { lastError = e.message; }
+  }
+  throw new Error(lastError || 'Não foi possível conectar com a IA.');
+}
+
+async function callIA(msgs) {
+  showTyping();
+  try {
+    const prompt = msgs.filter(m=>m.role!=='system').map(m=>`${m.role==='user'?'Cliente':'Assistente'}: ${m.content}`).join('\n');
+    const txt = await callGemini(prompt);
+    removeTyping();
+    addMsgUI('assistant', txt);
+    iaState.msgs.push({role:'assistant',content:txt});
+  } catch(e) {
+    removeTyping();
+    addMsgUI('system','❌ Erro na API.');
+  }
+}
+
+async function gerarDocumentosIA() {
+  addMsgUI('system', '⏳ Gerando documentos automaticamente...');
+  const footer = document.getElementById('ia-footer-actions');
+  if (footer) footer.innerHTML = '<div class="loading"><div class="spin"></div>Gerando documentos...</div>';
+
+  const { nome, cpf, depoimento, parecer } = iaState.dadosCliente;
+  const hoje = new Date().toLocaleDateString('pt-BR');
+  const cidade = 'Fortaleza';
+
+  try {
+    // Gera os 4 documentos em paralelo
+    const [procuracao, contrato, hipossuficiencia, checklist] = await Promise.all([
+      gerarDoc('procuracao', nome, cpf, depoimento, hoje, cidade),
+      gerarDoc('contrato', nome, cpf, depoimento, hoje, cidade),
+      gerarDoc('hipossuficiencia', nome, cpf, depoimento, hoje, cidade),
+      gerarDoc('checklist', nome, cpf, depoimento, hoje, cidade),
+    ]);
+
+    iaState.docsGerados = { procuracao, contrato, hipossuficiencia, checklist };
+
+    renderDocsGerados();
+
+    // Expande layout para mostrar docs
+    const layout = document.getElementById('ia-layout');
+    if (layout) layout.style.gridTemplateColumns = '1fr 1fr';
+    const docsPanel = document.getElementById('ia-docs-panel');
+    if (docsPanel) docsPanel.style.padding = '20px';
+
+    addMsgUI('system', '✅ 4 documentos gerados com sucesso! Verifique ao lado →');
+    iaState.fase = 'concluido';
+
+    if (footer) footer.innerHTML = `
+      <button class="btn btn-p" onclick="salvarAtendimento('completo')">💾 Salvar Atendimento Completo</button>
+      <button class="btn btn-s" onclick="imprimirDocs()">🖨️ Imprimir / PDF</button>`;
+
+  } catch(e) {
+    addMsgUI('system', `❌ Erro ao gerar documentos: ${e.message}`);
+    if (footer) footer.innerHTML = `<button class="btn btn-p" onclick="gerarDocumentosIA()">🔄 Tentar novamente</button>`;
+  }
+}
+
+async function gerarDoc(tipo, nome, cpf, depoimento, hoje, cidade) {
+  const prompts = {
+    procuracao: `Gere uma PROCURAÇÃO AD JUDICIA formal e completa para o caso abaixo.
+Outorgante: ${nome}, CPF: ${cpf}
+Caso: ${depoimento}
+Data: ${hoje} - Local: ${cidade}
+Inclua: qualificação do outorgante, poderes amplos para o foro em geral, cláusula "et extra", com poderes especiais para receber e dar quitação. Use formato jurídico padrão brasileiro.`,
+
+    contrato: `Gere um CONTRATO DE HONORÁRIOS ADVOCATÍCIOS completo para o caso abaixo.
+Cliente: ${nome}, CPF: ${cpf}
+Caso: ${depoimento}
+Data: ${hoje} - Local: ${cidade}
+Inclua: qualificação das partes, objeto, honorários (deixe valor em branco para preenchimento), forma de pagamento, obrigações das partes, prazo, cláusula de êxito, foro. Use formato jurídico padrão.`,
+
+    hipossuficiencia: `Gere uma DECLARAÇÃO DE HIPOSSUFICIÊNCIA / POBREZA completa para:
+Declarante: ${nome}, CPF: ${cpf}
+Data: ${hoje} - Local: ${cidade}
+Inclua: qualificação, declaração de que não possui condições de arcar com as custas processuais sem prejuízo do sustento próprio e familiar, ciência das penas do art. 99 §1º CPC. Formato padrão para Justiça Gratuita.`,
+
+    checklist: `Crie um CHECKLIST DETALHADO de documentos e informações necessárias para o caso:
+Cliente: ${nome}
+Área: ${iaState.area}
+Resumo: ${depoimento.substring(0,300)}
+Inclua: documentos pessoais obrigatórios, documentos específicos da área jurídica, informações adicionais necessárias, prazo de validade dos documentos quando aplicável. Use formato de lista organizada por categoria.`
+  };
+
+  return await callGemini(prompts[tipo]);
+}
+
+function renderDocsGerados() {
+  const panel = document.getElementById('ia-docs-content');
+  if (!panel || !iaState.docsGerados) return;
+  const docs = [
+    { key:'procuracao', icon:'📜', titulo:'Procuração Ad Judicia' },
+    { key:'contrato',   icon:'📑', titulo:'Contrato de Honorários' },
+    { key:'hipossuficiencia', icon:'📋', titulo:'Declaração de Hipossuficiência' },
+    { key:'checklist',  icon:'✅', titulo:'Checklist do Caso' },
+  ];
+  panel.innerHTML = docs.filter(d=>iaState.docsGerados[d.key]).map(d=>`
+    <div class="doc-gerado">
+      <div class="doc-gerado-header">
+        <div class="doc-gerado-titulo">${d.icon} ${d.titulo}</div>
+        <button class="btn btn-g btn-sm" onclick="copiarDoc('${d.key}')">📋 Copiar</button>
+      </div>
+      <div class="doc-gerado-body" id="doc-${d.key}">${iaState.docsGerados[d.key].replace(/\n/g,'<br/>')}</div>
+    </div>`).join('');
+}
+
+function copiarDoc(key) {
+  navigator.clipboard.writeText(iaState.docsGerados[key]||'');
+  const btn = event.target;
+  btn.textContent = '✅ Copiado!';
+  setTimeout(()=>btn.textContent='📋 Copiar', 2000);
+}
+
+function imprimirDocs() {
+  const docs = iaState.docsGerados;
+  const html = `<html><head><title>Documentos — ${iaState.dadosCliente.nome}</title>
+  <style>body{font-family:Arial,sans-serif;padding:40px;font-size:13px;line-height:1.7}h2{margin-top:40px;border-bottom:2px solid #333;padding-bottom:8px}.doc{page-break-after:always;margin-bottom:40px}</style>
+  </head><body>
+  <h1>Documentos — ${iaState.dadosCliente.nome}</h1>
+  <p>Área: ${iaState.area} | Gerado em: ${new Date().toLocaleDateString('pt-BR')}</p>
+  ${docs.procuracao?`<div class="doc"><h2>📜 Procuração Ad Judicia</h2><p>${docs.procuracao.replace(/\n/g,'<br/>')}</p></div>`:''}
+  ${docs.contrato?`<div class="doc"><h2>📑 Contrato de Honorários</h2><p>${docs.contrato.replace(/\n/g,'<br/>')}</p></div>`:''}
+  ${docs.hipossuficiencia?`<div class="doc"><h2>📋 Declaração de Hipossuficiência</h2><p>${docs.hipossuficiencia.replace(/\n/g,'<br/>')}</p></div>`:''}
+  ${docs.checklist?`<div class="doc"><h2>✅ Checklist do Caso</h2><p>${docs.checklist.replace(/\n/g,'<br/>')}</p></div>`:''}
+  </body></html>`;
+  const w = window.open('','_blank');
+  w.document.write(html);
+  w.document.close();
+  w.print();
+}
+
+async function salvarAtendimento(statusAtend) {
+  try {
+    const atendData = {
+      nomeCliente: iaState.dadosCliente.nome||'',
+      cpf: iaState.dadosCliente.cpf||'',
+      area: iaState.area||'',
+      depoimento: iaState.dadosCliente.depoimento||'',
+      parecer: iaState.dadosCliente.parecer||'',
+      msgs: iaState.msgs,
+      docsGerados: iaState.docsGerados||{},
+      fase: iaState.fase,
+      statusAtend,
+      totalDocs: Object.keys(iaState.docsGerados||{}).length,
+    };
+    const id = await saveDoc('atendimentos', atendData, iaState.atendimentoId);
+    iaState.atendimentoId = id;
+    addMsgUI('system', `✅ Atendimento salvo com sucesso! (${statusAtend==='completo'?'Caso Completo':'Pendente'})`);
+  } catch(e) { addMsgUI('system','❌ Erro ao salvar.'); }
+}
+
+// ===== RENDER IA PAGE =====
+function renderIaPage() {
+  const atends = DATA.atendimentos||[];
+  document.getElementById('ia-total').textContent = atends.length;
+  document.getElementById('ia-completos').textContent = atends.filter(a=>a.statusAtend==='completo').length;
+  document.getElementById('ia-pendentes').textContent = atends.filter(a=>a.statusAtend==='pendente').length;
+  document.getElementById('ia-docs').textContent = atends.reduce((s,a)=>s+(a.totalDocs||0),0);
+
+  if (!GEMINI_API_KEY) document.getElementById('ia-api-warning').style.display='flex';
+
+  const el = document.getElementById('ia-atendimentos-list');
+  if (!atends.length) { el.innerHTML='<div class="empty"><div class="ic">🤖</div><h3>Nenhum atendimento ainda</h3><p>Clique em "Novo Atendimento" para iniciar</p></div>'; return; }
+  el.innerHTML = atends.map(a=>`
+    <div class="atend-card">
+      <div class="atend-info">
+        <h4>${a.nomeCliente||'Cliente'} <span class="badge ${a.area?'bb':'bgr'}" style="font-size:10px">${a.area||'—'}</span></h4>
+        <p>${a.depoimento?.substring(0,80)||''}... • ${a.totalDocs||0} doc(s) gerado(s)</p>
+      </div>
+      <div class="flex">
+        <span class="badge ${a.statusAtend==='completo'?'bg':'by'}">${a.statusAtend==='completo'?'Completo':'Pendente'}</span>
+        <button class="btn btn-s btn-sm" onclick="abrirAtendimento('${a.id}')">Ver →</button>
+      </div>
+    </div>`).join('');
+}
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
+}
+
+// ===== NAVIGATION =====
+let currentPage = 'dashboard';
+function goTo(page) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  document.getElementById('nav-'+page)?.classList.add('active');
+  currentPage = page;
+  closeSidebar();
+  if (page==='relatorios') renderRelatorios();
+  if (page==='admin') loadAdminPanel();
+  if (page==='ia') renderIaPage();
+}
+
+// ===== NOTIFICAÇÕES POR E-MAIL (EmailJS) =====
+// Para ativar: crie conta grátis em https://emailjs.com
+// Substitua os valores abaixo pelos seus:
+const EMAILJS_SERVICE_ID  = '';  // ex: 'service_abc123'
+const EMAILJS_TEMPLATE_ID = '';  // ex: 'template_xyz789'
+const EMAILJS_PUBLIC_KEY  = '';  // ex: 'user_AbCdEfGhIj'
+
+function emailjsReady() {
+  return EMAILJS_SERVICE_ID && EMAILJS_TEMPLATE_ID && EMAILJS_PUBLIC_KEY;
+}
+
+async function sendEmailNotification(toEmail, subject, message) {
+  if (!emailjsReady()) return; // silently skip if not configured
+  try {
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      to_email: toEmail,
+      subject: subject,
+      message: message,
+      from_name: 'LexCRM'
+    }, EMAILJS_PUBLIC_KEY);
+  } catch(e) { console.warn('EmailJS error:', e); }
+}
+
+// Verifica prazos urgentes e envia e-mail de alerta
+async function checkAndNotifyDeadlines() {
+  if (!emailjsReady() || !currentUser) return;
+  const now = new Date();
+  const urgentes = DATA.eventos.filter(e => {
+    if (!e.data || e.status === 'Concluído') return false;
+    const diff = (new Date(e.data+'T12:00:00') - now) / 86400000;
+    return diff >= 0 && diff <= 3;
+  });
+  if (urgentes.length > 0) {
+    const lista = urgentes.map(e => `• ${e.titulo} — ${fmtDate(e.data)}`).join('\n');
+    await sendEmailNotification(
+      currentUser.email,
+      `⚠️ LexCRM — ${urgentes.length} prazo(s) urgente(s)`,
+      `Você tem ${urgentes.length} prazo(s) nos próximos 3 dias:\n\n${lista}\n\nAcesse o sistema para mais detalhes.`
+    );
+  }
+}
+
+// Notifica admin quando novo usuário solicitar acesso
+async function notifyAdminNewUser(userName, userEmail) {
+  if (!emailjsReady()) return;
+  await sendEmailNotification(
+    ADMIN_EMAIL,
+    '👤 LexCRM — Nova solicitação de acesso',
+    `O usuário ${userName} (${userEmail}) solicitou acesso ao LexCRM.\n\nAcesse o Painel Admin para aprovar ou recusar.`
+  );
+}
+
+function refreshAll() {
+  renderDashboard();
+  if (currentPage==='clientes') renderClientes();
+  if (currentPage==='processos') renderProcessos();
+  if (currentPage==='agenda') renderAgenda();
+  if (currentPage==='financeiro') renderFinanceiro();
+  if (currentPage==='documentos') renderDocumentos();
+  if (currentPage==='relatorios') renderRelatorios();
+  if (currentPage==='ia') renderIaPage();
+  updateAdvFilter();
+}
+
+// ===== UTILS =====
+const brl = v => parseFloat(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const fmtDate = s => s ? new Date(s+'T12:00:00').toLocaleDateString('pt-BR') : '—';
+function dateClass(s) {
+  if (!s) return '';
+  const diff = (new Date(s+'T12:00:00') - new Date()) / 86400000;
+  if (diff < 0||diff<=3) return 'date-u';
+  if (diff<=7) return 'date-w';
+  return 'date-ok';
+}
+function statusBadge(s) {
+  const map={'Em andamento':'bb','Ativo':'bg','Suspenso':'by','Arquivado':'bgr','Encerrado':'bgr','Ganho':'bg','Perdido':'br','Acordo':'bo'};
+  return `<span class="badge ${map[s]||'bgr'}">${s||'—'}</span>`;
+}
+
+function sentencaBadge(s) {
+  if(!s)return'';
+  const map={'Procedente':'bg','Parcialmente Procedente':'bo','Improcedente':'br','Extinto sem mérito':'bgr','Homologação de Acordo':'bo','Provido':'bg','Não Provido':'br'};
+  return `<span class="badge ${map[s]||'bgr'}" title="Sentença">${s}</span>`;
+}
+
+function onStatusChange(val) {
+  const sg=document.getElementById('sentenca-group');
+  const ag=document.getElementById('acordo-group');
+  if(sg) sg.style.display=(val==='Ganho'||val==='Perdido'||val==='Encerrado'||val==='Acordo')?'block':'none';
+  if(ag) ag.style.display=(val==='Acordo')?'block':'none';
+}
+function destroyChart(id) { if(charts[id]){charts[id].destroy();delete charts[id];} }
+function setDashDate() {
+  document.getElementById('dash-date').textContent = new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+}
+
+// ===== DASHBOARD =====
+function renderDashboard() {
+  const ativos=DATA.processos.filter(p=>p.status==='Ativo'||p.status==='Em andamento');
+  const aReceber=DATA.financeiro.filter(f=>f.tipo==='receita'&&f.status==='pendente').reduce((s,f)=>s+(parseFloat(f.valor)||0),0);
+  const recebido=DATA.financeiro.filter(f=>f.tipo==='receita'&&f.status==='pago').reduce((s,f)=>s+(parseFloat(f.valor)||0),0);
+  const now=new Date();
+  const urgentes=DATA.eventos.filter(e=>{if(!e.data||e.status==='Concluído')return false;return(new Date(e.data+'T12:00:00')-now)/86400000<=7;});
+  document.getElementById('ds-clientes').textContent=DATA.clientes.length;
+  document.getElementById('ds-processos').textContent=ativos.length;
+  document.getElementById('ds-proc-sub').textContent=`de ${DATA.processos.length} total`;
+  document.getElementById('ds-prazos').textContent=urgentes.length;
+  document.getElementById('ds-prazos').style.color=urgentes.length>0?'var(--red)':'var(--green)';
+  document.getElementById('ds-receber').textContent=brl(aReceber);
+  document.getElementById('ds-rec-sub').textContent=`recebido: ${brl(recebido)}`;
+  const proximos=DATA.eventos.filter(e=>e.data&&e.status!=='Concluído').sort((a,b)=>a.data?.localeCompare(b.data)).slice(0,5);
+  const prEl=document.getElementById('dash-prazos');
+  prEl.innerHTML=proximos.length?proximos.map(ev=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);margin-bottom:6px"><div><div style="font-size:13px;font-weight:500">${ev.titulo}</div><div style="font-size:11px;color:var(--textm);margin-top:2px">${ev.cliente||''}</div></div><span class="${dateClass(ev.data)}" style="font-size:12px;flex-shrink:0">${fmtDate(ev.data)}</span></div>`).join(''):'<div class="empty"><p>Nenhum prazo próximo</p></div>';
+  const areaCount={};DATA.processos.forEach(p=>{if(p.area)areaCount[p.area]=(areaCount[p.area]||0)+1;});
+  destroyChart('area');
+  if(Object.keys(areaCount).length){charts['area']=new Chart(document.getElementById('chart-area'),{type:'bar',data:{labels:Object.keys(areaCount),datasets:[{data:Object.values(areaCount),backgroundColor:['#c9a84c','#4a7fa5','#3d8c6e','#8c3d4a','#a06830'],borderRadius:4}]},options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#5c5a6e',font:{size:11}},grid:{display:false}},y:{ticks:{color:'#5c5a6e',font:{size:11}},grid:{color:'#2a2a3a'}}},animation:{duration:400}}});}
+  const cliEl=document.getElementById('dash-clientes-table');
+  cliEl.innerHTML=DATA.clientes.length?`<table><thead><tr><th>Nome</th><th>CPF/CNPJ</th><th>Telefone</th><th>Tipo</th><th>Status</th></tr></thead><tbody>${DATA.clientes.slice(0,5).map(c=>`<tr><td style="font-weight:500">${c.nome}</td><td style="color:var(--text2)">${c.cpfCnpj||'—'}</td><td style="color:var(--text2)">${c.celular||c.telefone||'—'}</td><td><span class="badge ${c.tipo==='PJ'?'bb':'bgr'}">${c.tipo||'PF'}</span></td><td><span class="badge ${c.status==='Ativo'?'bg':'bgr'}">${c.status||'Ativo'}</span></td></tr>`).join('')}</tbody></table>`:'<div class="empty"><p>Nenhum cliente ainda</p></div>';
+}
+
+// ===== CLIENTES =====
+function renderClientes() {
+  const q=document.getElementById('search-clientes').value.toLowerCase();
+  const filtered=DATA.clientes.filter(c=>c.nome?.toLowerCase().includes(q)||c.cpfCnpj?.includes(q)||c.email?.toLowerCase().includes(q));
+  document.getElementById('clientes-sub').textContent=`${DATA.clientes.length} cliente${DATA.clientes.length!==1?'s':''}`;
+  const el=document.getElementById('clientes-table');
+  if(!filtered.length){el.innerHTML='<div class="card"><div class="empty"><div class="ic">👥</div><h3>Nenhum cliente encontrado</h3></div></div>';return;}
+  el.innerHTML=`<div class="tw"><table><thead><tr><th>Nome</th><th>Tipo</th><th>CPF/CNPJ</th><th>Celular</th><th>E-mail</th><th>Status</th><th>Ações</th></tr></thead><tbody>${filtered.map(c=>`<tr><td style="font-weight:500">${c.nome}</td><td><span class="badge ${c.tipo==='PJ'?'bb':'bgr'}">${c.tipo||'PF'}</span></td><td style="color:var(--text2)">${c.cpfCnpj||'—'}</td><td style="color:var(--text2)">${c.celular||c.telefone||'—'}</td><td style="color:var(--text2)">${c.email||'—'}</td><td><span class="badge ${c.status==='Ativo'?'bg':'bgr'}">${c.status||'Ativo'}</span></td><td><div class="flex"><button class="btn btn-g btn-ic" onclick="editItem('cliente','${c.id}')">✏️</button><button class="btn btn-g btn-ic" onclick="deleteItem('clientes','${c.id}')" style="color:var(--red)">🗑️</button></div></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+// ===== PROCESSOS =====
+function renderProcessos() {
+  const q=document.getElementById('search-processos').value.toLowerCase();
+  const fs=document.getElementById('filter-proc-status').value;
+  const fa=document.getElementById('filter-proc-adv')?.value||'';
+  // Admin vê todos; advogado vê só os seus
+  let todos = isAdmin ? DATA.processos : DATA.processos.filter(p=>!p.advogado_responsavel||p.advogado_responsavel===currentUser?.displayName||p.uid===currentUser?.uid);
+  const filtered=todos.filter(p=>(p.titulo?.toLowerCase().includes(q)||p.numero?.includes(q)||p.cliente?.toLowerCase().includes(q)||p.advogado_responsavel?.toLowerCase().includes(q))&&(!fs||p.status===fs)&&(!fa||p.advogado_responsavel===fa));
+  document.getElementById('processos-sub').textContent=`${filtered.length} de ${DATA.processos.length} processo${DATA.processos.length!==1?'s':''}${!isAdmin?' (seus processos)':''}`;
+  const el=document.getElementById('processos-table');
+  if(!filtered.length){el.innerHTML='<div class="card"><div class="empty"><div class="ic">📁</div><h3>Nenhum processo encontrado</h3></div></div>';return;}
+  el.innerHTML=`<div class="tw"><table><thead><tr><th>Nº Processo</th><th>Título</th><th>Cliente</th><th>Advogado</th><th>Área</th><th>Fase</th><th>Sentença</th><th>Status</th><th>Ações</th></tr></thead><tbody>${filtered.map(p=>`<tr>
+    <td style="color:var(--gold);font-family:monospace;font-size:12px">${p.numero||'—'}</td>
+    <td style="font-weight:500">${p.titulo}</td>
+    <td style="color:var(--text2)">${p.cliente||'—'}</td>
+    <td style="color:var(--text2);font-size:12px">${p.advogado_responsavel||'—'}</td>
+    <td><span class="badge bo">${p.area||'—'}</span></td>
+    <td style="color:var(--text2);font-size:12px">${p.fase||'—'}</td>
+    <td>${p.resultadoSentenca?sentencaBadge(p.resultadoSentenca):'<span style="color:var(--textm);font-size:12px">—</span>'}</td>
+    <td>${statusBadge(p.status)}</td>
+    <td><div class="flex"><button class="btn btn-g btn-ic" onclick="editItem('processo','${p.id}')">✏️</button><button class="btn btn-g btn-ic" onclick="deleteItem('processos','${p.id}')" style="color:var(--red)">🗑️</button></div></td>
+  </tr>`).join('')}</tbody></table></div>`;
+}
+
+// ===== AGENDA =====
+function renderAgenda() {
+  const q=document.getElementById('search-agenda').value.toLowerCase();
+  const ft=document.getElementById('filter-agenda-tipo').value;
+  const fs=document.getElementById('filter-agenda-status').value;
+  const now=new Date();
+  const urgentes=DATA.eventos.filter(e=>{if(!e.data||e.status==='Concluído')return false;return(new Date(e.data+'T12:00:00')-now)/86400000<=7;});
+  document.getElementById('agenda-sub').textContent=urgentes.length>0?`${urgentes.length} evento(s) requerem atenção`:'Todos os prazos em dia';
+  document.getElementById('agenda-warn').innerHTML=urgentes.length?`<div class="warn-bar">⚠️ ${urgentes.length} prazo(s) nos próximos 7 dias!</div>`:'';
+  const filtered=DATA.eventos.filter(e=>(e.titulo?.toLowerCase().includes(q)||e.cliente?.toLowerCase().includes(q))&&(!ft||e.tipo===ft)&&(!fs||e.status===fs));
+  const el=document.getElementById('agenda-table');
+  if(!filtered.length){el.innerHTML='<div class="card"><div class="empty"><div class="ic">📅</div><h3>Nenhum evento encontrado</h3></div></div>';return;}
+  el.innerHTML=`<div class="tw"><table><thead><tr><th>Título</th><th>Tipo</th><th>Data</th><th>Hora</th><th>Cliente</th><th>Prioridade</th><th>Status</th><th>Ações</th></tr></thead><tbody>${filtered.map(ev=>`<tr style="opacity:${ev.status==='Concluído'?.6:1}"><td style="font-weight:500">${ev.titulo}</td><td><span class="badge bb">${ev.tipo}</span></td><td><span class="${ev.status!=='Concluído'?dateClass(ev.data):''}">${fmtDate(ev.data)}</span></td><td style="color:var(--text2)">${ev.hora||'—'}</td><td style="color:var(--text2)">${ev.cliente||'—'}</td><td><span class="badge ${ev.prioridade==='Alta'?'br':ev.prioridade==='Média'?'by':'bgr'}">${ev.prioridade||'Média'}</span></td><td><button class="badge ${ev.status==='Concluído'?'bg':'by'}" style="cursor:pointer;border:none;background:none" onclick="toggleEvStatus('${ev.id}','${ev.status}')">${ev.status||'Pendente'}</button></td><td><div class="flex"><button class="btn btn-g btn-ic" onclick="editItem('evento','${ev.id}')">✏️</button><button class="btn btn-g btn-ic" onclick="deleteItem('eventos','${ev.id}')" style="color:var(--red)">🗑️</button></div></td></tr>`).join('')}</tbody></table></div>`;
+}
+async function toggleEvStatus(id,status){await db.collection('eventos').doc(id).update({status:encrypt(status==='Concluído'?'Pendente':'Concluído'),atualizadoEm:firebase.firestore.FieldValue.serverTimestamp()});}
+
+// ===== FINANCEIRO =====
+function renderFinanceiro() {
+  const q=document.getElementById('search-fin').value.toLowerCase();
+  const ft=document.getElementById('filter-fin-tipo').value;
+  const fs=document.getElementById('filter-fin-status').value;
+  const rec=DATA.financeiro.filter(f=>f.tipo==='receita'&&f.status==='pago').reduce((s,f)=>s+(parseFloat(f.valor)||0),0);
+  const desp=DATA.financeiro.filter(f=>f.tipo==='despesa'&&f.status==='pago').reduce((s,f)=>s+(parseFloat(f.valor)||0),0);
+  const arec=DATA.financeiro.filter(f=>f.tipo==='receita'&&f.status==='pendente').reduce((s,f)=>s+(parseFloat(f.valor)||0),0);
+  const saldo=rec-desp;
+  document.getElementById('fin-rec').textContent=brl(rec);
+  document.getElementById('fin-desp').textContent=brl(desp);
+  document.getElementById('fin-arec').textContent=brl(arec);
+  const sEl=document.getElementById('fin-saldo');sEl.textContent=brl(saldo);sEl.style.color=saldo>=0?'var(--green)':'var(--red)';
+  const filtered=DATA.financeiro.filter(f=>(f.descricao?.toLowerCase().includes(q)||f.cliente?.toLowerCase().includes(q))&&(!ft||f.tipo===ft)&&(!fs||f.status===fs));
+  const el=document.getElementById('financeiro-table');
+  if(!filtered.length){el.innerHTML='<div class="card"><div class="empty"><div class="ic">💰</div><h3>Nenhum lançamento</h3></div></div>';return;}
+  el.innerHTML=`<div class="tw"><table><thead><tr><th>Descrição</th><th>Tipo</th><th>Categoria</th><th>Cliente</th><th>Valor</th><th>Data</th><th>Vencimento</th><th>Status</th><th>Ações</th></tr></thead><tbody>${filtered.map(f=>`<tr><td style="font-weight:500">${f.descricao}</td><td><span class="badge ${f.tipo==='receita'?'bg':'br'}">${f.tipo==='receita'?'Receita':'Despesa'}</span></td><td style="color:var(--text2)">${f.categoria||'—'}</td><td style="color:var(--text2)">${f.cliente||'—'}</td><td style="font-weight:600;color:${f.tipo==='receita'?'var(--green)':'var(--red)'}">${f.tipo==='despesa'?'- ':''}${brl(f.valor)}</td><td style="color:var(--text2)">${fmtDate(f.data)}</td><td style="color:var(--text2)">${fmtDate(f.vencimento)}</td><td><button class="badge ${f.status==='pago'?'bg':'by'}" style="cursor:pointer;border:none;background:none" onclick="toggleFinStatus('${f.id}','${f.status}')">${f.status==='pago'?(f.tipo==='receita'?'Recebido':'Pago'):'Pendente'}</button></td><td><div class="flex"><button class="btn btn-g btn-ic" onclick="editItem('financeiro','${f.id}')">✏️</button><button class="btn btn-g btn-ic" onclick="deleteItem('financeiro','${f.id}')" style="color:var(--red)">🗑️</button></div></td></tr>`).join('')}</tbody></table></div>`;
+}
+async function toggleFinStatus(id,status){await db.collection('financeiro').doc(id).update({status:encrypt(status==='pago'?'pendente':'pago'),atualizadoEm:firebase.firestore.FieldValue.serverTimestamp()});}
+
+// ===== DOCUMENTOS =====
+function renderDocumentos() {
+  const q=document.getElementById('search-documentos').value.toLowerCase();
+  const filtered=DATA.documentos.filter(d=>d.titulo?.toLowerCase().includes(q)||d.cliente?.toLowerCase().includes(q)||d.tipo?.toLowerCase().includes(q));
+  document.getElementById('documentos-sub').textContent=`${DATA.documentos.length} documento${DATA.documentos.length!==1?'s':''}`;
+  const el=document.getElementById('documentos-table');
+  if(!filtered.length){el.innerHTML='<div class="card"><div class="empty"><div class="ic">📄</div><h3>Nenhum documento</h3></div></div>';return;}
+  el.innerHTML=`<div class="tw"><table><thead><tr><th>Título</th><th>Tipo</th><th>Cliente</th><th>Processo</th><th>Data</th><th>Arquivos</th><th>Status</th><th>Ações</th></tr></thead><tbody>${filtered.map(d=>`<tr><td style="font-weight:500">${d.titulo}</td><td><span class="badge bb">${d.tipo||'—'}</span></td><td style="color:var(--text2)">${d.cliente||'—'}</td><td style="color:var(--text2);font-size:12px">${d.processo||'—'}</td><td style="color:var(--text2)">${fmtDate(d.data)}</td><td><button class="btn btn-g btn-sm" onclick="openFiles('${d.id}')">📎 ${d.arquivos?.length||0} arquivo(s)</button></td><td><span class="badge ${d.status==='Ativo'?'bg':'bgr'}">${d.status||'Ativo'}</span></td><td><div class="flex"><button class="btn btn-g btn-ic" onclick="editItem('documento','${d.id}')">✏️</button><button class="btn btn-g btn-ic" onclick="deleteItem('documentos','${d.id}')" style="color:var(--red)">🗑️</button></div></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+// ===== FILE UPLOAD =====
+async function openFiles(docId) {
+  const doc = DATA.documentos.find(d=>d.id===docId);
+  if (!doc) return;
+  document.getElementById('modal-container').innerHTML = `
+    <div class="overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <div class="mhd"><h3>📎 Arquivos — ${doc.titulo}</h3><button class="btn btn-g btn-ic" onclick="closeModal()">✕</button></div>
+        <div class="mbody">
+          <div class="upload-area" id="upload-area-${docId}" onclick="document.getElementById('file-input-${docId}').click()" ondragover="event.preventDefault();this.classList.add('dragging')" ondragleave="this.classList.remove('dragging')" ondrop="handleDrop(event,'${docId}')">
+            <div style="font-size:2rem;margin-bottom:8px">📁</div>
+            <p style="font-weight:500;margin-bottom:4px">Clique ou arraste arquivos aqui</p>
+            <p style="font-size:12px;color:var(--text2)">PDF, Word, imagens — máx. 10MB por arquivo</p>
+            <input type="file" id="file-input-${docId}" style="display:none" multiple onchange="uploadFiles(this.files,'${docId}')"/>
+          </div>
+          <div id="upload-progress-${docId}"></div>
+          <div style="margin-top:16px" id="files-list-${docId}">
+            ${(doc.arquivos||[]).length===0?'<p style="color:var(--textm);font-size:13px;text-align:center;padding:16px 0">Nenhum arquivo ainda</p>':
+            (doc.arquivos||[]).map((f,i)=>`
+              <div class="file-item">
+                <div class="flex"><span style="font-size:16px">${fileIcon(f.nome)}</span><a href="${f.url}" target="_blank">${f.nome}</a><span style="font-size:11px;color:var(--textm);margin-left:4px">${f.tamanho||''}</span></div>
+                <button class="btn btn-g btn-ic" onclick="deleteFile('${docId}',${i})" style="color:var(--red)">🗑️</button>
+              </div>`).join('')}
+          </div>
+        </div>
+        <div class="mfoot"><button class="btn btn-s" onclick="closeModal()">Fechar</button></div>
+      </div>
+    </div>`;
+}
+
+function fileIcon(nome) {
+  const ext = nome?.split('.').pop()?.toLowerCase();
+  if (['pdf'].includes(ext)) return '📕';
+  if (['doc','docx'].includes(ext)) return '📘';
+  if (['xls','xlsx'].includes(ext)) return '📗';
+  if (['jpg','jpeg','png','gif','webp'].includes(ext)) return '🖼️';
+  return '📄';
+}
+
+async function uploadFiles(files, docId) {
+  const progressEl = document.getElementById(`upload-progress-${docId}`);
+  const doc = DATA.documentos.find(d=>d.id===docId);
+  const existingFiles = doc?.arquivos || [];
+
+  if (CLOUDINARY_CLOUD_NAME === 'SEU_CLOUD_NAME') {
+    alert('⚙️ Configure o Cloudinary no código!\n\nSubstitua SEU_CLOUD_NAME e SEU_UPLOAD_PRESET pelos valores da sua conta em cloudinary.com');
+    return;
+  }
+
+  for (const file of files) {
+    if (file.size > 10 * 1024 * 1024) { alert(`Arquivo ${file.name} excede 10MB.`); continue; }
+
+    progressEl.innerHTML = `<div style="margin-top:10px"><p style="font-size:12px;color:var(--text2);margin-bottom:4px">Enviando ${file.name}...</p><div class="progress-bar"><div class="progress-fill" id="pf-${docId}" style="width:30%"></div></div></div>`;
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+      formData.append('folder', `lexcrm/${currentUser.uid}/${docId}`);
+
+      const pfEl = document.getElementById(`pf-${docId}`);
+      if (pfEl) pfEl.style.width = '60%';
+
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!res.ok) throw new Error('Erro no upload');
+      const data = await res.json();
+
+      if (pfEl) pfEl.style.width = '100%';
+
+      const tamanho = file.size > 1024*1024 ? (file.size/1024/1024).toFixed(1)+'MB' : Math.round(file.size/1024)+'KB';
+      existingFiles.push({
+        nome: file.name,          // nome mantido legível para exibição
+        url: data.secure_url,     // URL mantida legível (necessária para acesso)
+        publicId: data.public_id,
+        tamanho,
+        criadoEm: new Date().toISOString()
+      });
+    } catch(err) {
+      console.error(err);
+      alert(`Erro ao enviar ${file.name}. Verifique as configurações do Cloudinary.`);
+    }
+  }
+
+  await db.collection('documentos').doc(docId).update({ arquivos: existingFiles, atualizadoEm: firebase.firestore.FieldValue.serverTimestamp() });
+  progressEl.innerHTML = '';
+  openFiles(docId);
+}
+
+function handleDrop(event, docId) {
+  event.preventDefault();
+  document.getElementById(`upload-area-${docId}`)?.classList.remove('dragging');
+  uploadFiles(event.dataTransfer.files, docId);
+}
+
+async function deleteFile(docId, index) {
+  if (!confirm('Deseja excluir este arquivo?')) return;
+  const doc = DATA.documentos.find(d=>d.id===docId);
+  const arquivos = [...(doc?.arquivos||[])];
+  // Nota: a exclusão física no Cloudinary requer backend (API key secreta).
+  // O arquivo é removido da lista do documento no Firestore.
+  arquivos.splice(index, 1);
+  await db.collection('documentos').doc(docId).update({ arquivos, atualizadoEm: firebase.firestore.FieldValue.serverTimestamp() });
+  openFiles(docId);
+}
+
+// ===== RELATORIOS =====
+function renderRelatorios() {
+  const ativos=DATA.processos.filter(p=>p.status==='Ativo'||p.status==='Em andamento').length;
+  const ganhos=DATA.processos.filter(p=>p.status==='Ganho').length;
+  const receita=DATA.financeiro.filter(f=>f.tipo==='receita'&&f.status==='pago').reduce((s,f)=>s+(parseFloat(f.valor)||0),0);
+  document.getElementById('rel-cli').textContent=DATA.clientes.length;
+  document.getElementById('rel-proc').textContent=`${ativos}/${DATA.processos.length}`;
+  document.getElementById('rel-ganhos').textContent=ganhos;
+  document.getElementById('rel-receita').textContent=brl(receita);
+  const areaCount={};DATA.processos.forEach(p=>{if(p.area)areaCount[p.area]=(areaCount[p.area]||0)+1;});
+  destroyChart('rel-area');
+  if(Object.keys(areaCount).length){charts['rel-area']=new Chart(document.getElementById('chart-rel-area'),{type:'bar',data:{labels:Object.keys(areaCount),datasets:[{data:Object.values(areaCount),backgroundColor:['#c9a84c','#4a7fa5','#3d8c6e','#8c3d4a','#a06830'],borderRadius:4}]},options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#5c5a6e',font:{size:11}},grid:{display:false}},y:{ticks:{color:'#5c5a6e',font:{size:11}},grid:{color:'#2a2a3a'}}},animation:{duration:400}}});}
+  const statusCount={};DATA.processos.forEach(p=>{if(p.status)statusCount[p.status]=(statusCount[p.status]||0)+1;});
+  destroyChart('rel-status');
+  if(Object.keys(statusCount).length){charts['rel-status']=new Chart(document.getElementById('chart-rel-status'),{type:'doughnut',data:{labels:Object.keys(statusCount),datasets:[{data:Object.values(statusCount),backgroundColor:['#c9a84c','#4a7fa5','#3d8c6e','#8c3d4a','#a06830','#5c5a6e'],borderWidth:0}]},options:{plugins:{legend:{labels:{color:'#9896a8',font:{size:11}}}},animation:{duration:400}}});}
+  const monthly={};DATA.financeiro.forEach(f=>{if(!f.data)return;const m=f.data.substring(0,7);if(!monthly[m])monthly[m]={mes:m,r:0,d:0};if(f.tipo==='receita'&&f.status==='pago')monthly[m].r+=parseFloat(f.valor)||0;if(f.tipo==='despesa'&&f.status==='pago')monthly[m].d+=parseFloat(f.valor)||0;});
+  const mData=Object.values(monthly).sort((a,b)=>a.mes.localeCompare(b.mes)).slice(-6);
+  destroyChart('rel-fin');
+  if(mData.length){charts['rel-fin']=new Chart(document.getElementById('chart-rel-fin'),{type:'line',data:{labels:mData.map(m=>m.mes),datasets:[{label:'Receitas',data:mData.map(m=>m.r),borderColor:'#5ecfa0',backgroundColor:'rgba(94,207,160,.1)',fill:true,tension:.3},{label:'Despesas',data:mData.map(m=>m.d),borderColor:'#e07a88',backgroundColor:'rgba(224,122,136,.1)',fill:true,tension:.3}]},options:{plugins:{legend:{labels:{color:'#9896a8',font:{size:11}}}},scales:{x:{ticks:{color:'#5c5a6e',font:{size:11}},grid:{color:'#2a2a3a'}},y:{ticks:{color:'#5c5a6e',font:{size:11},callback:v=>`R$${(v/1000).toFixed(0)}k`},grid:{color:'#2a2a3a'}}},animation:{duration:400}}});}
+}
+
+// ===== MODAL SYSTEM =====
+const v = id => { const el=document.getElementById('f-'+id); return el?el.value:''; };
+const sv = (id,val) => { const el=document.getElementById('f-'+id); if(el&&val!==undefined)el.value=val||''; };
+const colMap = { cliente:'clientes', processo:'processos', evento:'eventos', financeiro:'financeiro', documento:'documentos' };
+
+const MODALS = {
+  cliente: {
+    title: id=>id?'Editar Cliente':'Novo Cliente', col:'clientes',
+    fields: ()=>`<div class="frow"><div class="fg"><label class="fl">Nome completo *</label><input class="fi" id="f-nome" required placeholder="Nome do cliente"/></div><div class="fg"><label class="fl">Tipo</label><select class="fs" id="f-tipo"><option>PF</option><option>PJ</option></select></div></div><div class="frow"><div class="fg"><label class="fl">CPF / CNPJ</label><input class="fi" id="f-cpfCnpj" placeholder="000.000.000-00"/></div><div class="fg"><label class="fl">RG</label><input class="fi" id="f-rg"/></div></div><div class="frow"><div class="fg"><label class="fl">E-mail</label><input class="fi" id="f-email" type="email"/></div><div class="fg"><label class="fl">Celular</label><input class="fi" id="f-celular" placeholder="(11) 99999-9999"/></div></div><div class="frow"><div class="fg"><label class="fl">Telefone</label><input class="fi" id="f-telefone"/></div><div class="fg"><label class="fl">Profissão</label><input class="fi" id="f-profissao"/></div></div><div class="fg"><label class="fl">Endereço</label><input class="fi" id="f-endereco"/></div><div class="frow"><div class="fg"><label class="fl">Cidade</label><input class="fi" id="f-cidade"/></div><div class="fg"><label class="fl">Estado</label><select class="fs" id="f-estado"><option value="">Selecione</option>${['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'].map(s=>`<option>${s}</option>`).join('')}</select></div></div><div class="frow"><div class="fg"><label class="fl">CEP</label><input class="fi" id="f-cep"/></div><div class="fg"><label class="fl">Status</label><select class="fs" id="f-status"><option>Ativo</option><option>Inativo</option><option>Prospecto</option></select></div></div><div class="fg"><label class="fl">Observações</label><textarea class="fta" id="f-observacoes"></textarea></div>`,
+    getValues: ()=>({nome:v('nome'),tipo:v('tipo'),cpfCnpj:v('cpfCnpj'),rg:v('rg'),email:v('email'),celular:v('celular'),telefone:v('telefone'),profissao:v('profissao'),endereco:v('endereco'),cidade:v('cidade'),estado:v('estado'),cep:v('cep'),status:v('status'),observacoes:v('observacoes')}),
+    setValues: d=>{sv('nome',d.nome);sv('tipo',d.tipo);sv('cpfCnpj',d.cpfCnpj);sv('rg',d.rg);sv('email',d.email);sv('celular',d.celular);sv('telefone',d.telefone);sv('profissao',d.profissao);sv('endereco',d.endereco);sv('cidade',d.cidade);sv('estado',d.estado);sv('cep',d.cep);sv('status',d.status);sv('observacoes',d.observacoes);}
+  },
+  processo: {
+    title: id=>id?'Editar Processo':'Novo Processo', col:'processos',
+    fields: ()=>{
+      const cli=DATA.clientes.map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('');
+      const advs=DATA.advogados||[];
+      const advOpts=advs.map(a=>`<option value="${a.nome}">${a.nome}</option>`).join('');
+      return `<div class="frow"><div class="fg"><label class="fl">Número do Processo</label><input class="fi" id="f-numero" placeholder="0000000-00.0000.0.00.0000"/></div><div class="fg"><label class="fl">Status</label><select class="fs" id="f-status" onchange="onStatusChange(this.value)"><option>Em andamento</option><option>Ativo</option><option>Suspenso</option><option>Arquivado</option><option>Encerrado</option><option>Acordo</option><option>Ganho</option><option>Perdido</option></select></div></div>
+      <div class="fg"><label class="fl">Título *</label><input class="fi" id="f-titulo" required/></div>
+      <div class="frow"><div class="fg"><label class="fl">Cliente</label><select class="fs" id="f-cliente"><option value="">Selecione</option>${cli}</select></div><div class="fg"><label class="fl">Advogado Responsável</label><input class="fi" id="f-advogado_responsavel" placeholder="Nome do advogado responsável"/></div></div>
+      <div class="frow"><div class="fg"><label class="fl">Área Jurídica</label><select class="fs" id="f-area"><option value="">Selecione</option><option>Cível</option><option>Criminal</option><option>Trabalhista</option><option>Tributário</option><option>Empresarial</option><option>Família</option><option>Previdenciário</option><option>Ambiental</option><option>Imobiliário</option><option>Outro</option></select></div><div class="fg"><label class="fl">Fase Atual</label><select class="fs" id="f-fase"><option value="">Selecione</option><option>Petição Inicial</option><option>Citação</option><option>Contestação</option><option>Réplica</option><option>Audiência de Instrução</option><option>Audiência de Conciliação</option><option>Perícia</option><option>Alegações Finais</option><option>Sentença</option><option>Recurso</option><option>Acórdão</option><option>Execução</option><option>Acordo</option><option>Arquivado</option></select></div></div>
+      <div class="frow"><div class="fg"><label class="fl">Tribunal</label><select class="fs" id="f-tribunal"><option value="">Selecione</option><option>TJSP</option><option>TJRJ</option><option>TJMG</option><option>TJCE</option><option>TRT</option><option>TRF</option><option>STJ</option><option>STF</option><option>CARF</option><option>Juizado Especial</option><option>Outro</option></select></div><div class="fg"><label class="fl">Vara</label><input class="fi" id="f-vara"/></div></div>
+      <div class="frow"><div class="fg"><label class="fl">Juiz</label><input class="fi" id="f-juiz"/></div><div class="fg"><label class="fl">Valor da Causa (R$)</label><input class="fi" id="f-valorCausa" type="number" step="0.01"/></div></div>
+      <div class="frow"><div class="fg"><label class="fl">Parte contrária</label><input class="fi" id="f-parte_contraria"/></div><div class="fg"><label class="fl">Advogado contrário</label><input class="fi" id="f-advogado_contrario"/></div></div>
+      <div class="frow"><div class="fg"><label class="fl">Data de abertura</label><input class="fi" id="f-dataAbertura" type="date"/></div><div class="fg"><label class="fl">Data da Sentença</label><input class="fi" id="f-dataSentenca" type="date"/></div></div>
+      <div id="sentenca-group" style="display:none"><div class="frow"><div class="fg"><label class="fl">Resultado da Sentença</label><select class="fs" id="f-resultadoSentenca"><option value="">Selecione</option><option>Procedente</option><option>Parcialmente Procedente</option><option>Improcedente</option><option>Extinto sem mérito</option><option>Homologação de Acordo</option><option>Provido</option><option>Não Provido</option></select></div><div class="fg"><label class="fl">Valor da Condenação (R$)</label><input class="fi" id="f-valorCondenacao" type="number" step="0.01"/></div></div></div>
+      <div id="acordo-group" style="display:none"><div class="alert" style="background:rgba(94,207,160,.1);border:1px solid rgba(94,207,160,.3);color:var(--green);margin-bottom:14px;padding:10px 14px;border-radius:8px;font-size:13px">✅ Ao salvar com status <strong>Acordo</strong>, um lançamento financeiro será criado automaticamente.</div><div class="frow"><div class="fg"><label class="fl">Valor do Acordo (R$)</label><input class="fi" id="f-valorAcordo" type="number" step="0.01"/></div><div class="fg"><label class="fl">Data do Acordo</label><input class="fi" id="f-dataAcordo" type="date"/></div></div></div>
+      <div class="fg"><label class="fl">Descrição</label><textarea class="fta" id="f-descricao"></textarea></div>
+      <div class="fg"><label class="fl">Observações internas</label><textarea class="fta" id="f-observacoes"></textarea></div>`;
+    },
+    getValues: ()=>({numero:v('numero'),status:v('status'),titulo:v('titulo'),cliente:v('cliente'),advogado_responsavel:v('advogado_responsavel'),area:v('area'),fase:v('fase'),tribunal:v('tribunal'),vara:v('vara'),juiz:v('juiz'),valorCausa:v('valorCausa'),parte_contraria:v('parte_contraria'),advogado_contrario:v('advogado_contrario'),dataAbertura:v('dataAbertura'),dataSentenca:v('dataSentenca'),resultadoSentenca:v('resultadoSentenca'),valorCondenacao:v('valorCondenacao'),valorAcordo:v('valorAcordo'),dataAcordo:v('dataAcordo'),descricao:v('descricao'),observacoes:v('observacoes')}),
+    setValues: d=>{sv('numero',d.numero);sv('status',d.status);onStatusChange(d.status);sv('titulo',d.titulo);sv('cliente',d.cliente);sv('advogado_responsavel',d.advogado_responsavel);sv('area',d.area);sv('fase',d.fase);sv('tribunal',d.tribunal);sv('vara',d.vara);sv('juiz',d.juiz);sv('valorCausa',d.valorCausa);sv('parte_contraria',d.parte_contraria);sv('advogado_contrario',d.advogado_contrario);sv('dataAbertura',d.dataAbertura);sv('dataSentenca',d.dataSentenca);sv('resultadoSentenca',d.resultadoSentenca);sv('valorCondenacao',d.valorCondenacao);sv('valorAcordo',d.valorAcordo);sv('dataAcordo',d.dataAcordo);sv('descricao',d.descricao);sv('observacoes',d.observacoes);}
+  },
+  evento: {
+    title: id=>id?'Editar Evento':'Novo Evento', col:'eventos',
+    fields: ()=>{const cli=DATA.clientes.map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('');const proc=DATA.processos.map(p=>`<option value="${p.titulo}">${p.titulo}</option>`).join('');return `<div class="fg"><label class="fl">Título *</label><input class="fi" id="f-titulo" required/></div><div class="frow"><div class="fg"><label class="fl">Tipo de Prazo</label><select class="fs" id="f-tipo"><option>Contestação</option><option>Recurso</option><option>Audiência de Instrução</option><option>Audiência de Conciliação</option><option>Perícia</option><option>Despacho</option><option>Julgamento</option><option>Protocolo</option><option>Alegações Finais</option><option>Réplica</option><option>Embargos de Declaração</option><option>Apelação</option><option>Agravo</option><option>Reunião com cliente</option><option>Outro</option></select></div><div class="fg"><label class="fl">Prioridade</label><select class="fs" id="f-prioridade"><option>Alta</option><option>Média</option><option>Baixa</option></select></div></div><div class="frow"><div class="fg"><label class="fl">Data *</label><input class="fi" id="f-data" type="date" required/></div><div class="fg"><label class="fl">Hora</label><input class="fi" id="f-hora" type="time"/></div></div><div class="frow"><div class="fg"><label class="fl">Cliente</label><select class="fs" id="f-cliente"><option value="">Selecione</option>${cli}</select></div><div class="fg"><label class="fl">Processo</label><select class="fs" id="f-processo"><option value="">Selecione</option>${proc}</select></div></div><div class="frow"><div class="fg"><label class="fl">Local</label><input class="fi" id="f-local"/></div><div class="fg"><label class="fl">Status</label><select class="fs" id="f-status"><option>Pendente</option><option>Concluído</option><option>Cancelado</option></select></div></div><div class="fg"><label class="fl">Descrição</label><textarea class="fta" id="f-descricao"></textarea></div>`;},
+    getValues: ()=>({titulo:v('titulo'),tipo:v('tipo'),prioridade:v('prioridade'),data:v('data'),hora:v('hora'),cliente:v('cliente'),processo:v('processo'),local:v('local'),status:v('status'),descricao:v('descricao')}),
+    setValues: d=>{sv('titulo',d.titulo);sv('tipo',d.tipo);sv('prioridade',d.prioridade);sv('data',d.data);sv('hora',d.hora);sv('cliente',d.cliente);sv('processo',d.processo);sv('local',d.local);sv('status',d.status);sv('descricao',d.descricao);}
+  },
+  financeiro: {
+    title: id=>id?'Editar Lançamento':'Novo Lançamento', col:'financeiro',
+    fields: ()=>{const cli=DATA.clientes.map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('');const proc=DATA.processos.map(p=>`<option value="${p.titulo}">${p.titulo}</option>`).join('');return `<div class="fg"><label class="fl">Descrição *</label><input class="fi" id="f-descricao" required/></div><div class="frow"><div class="fg"><label class="fl">Tipo *</label><select class="fs" id="f-tipo" onchange="updateCatOptions()"><option value="receita">Receita</option><option value="despesa">Despesa</option></select></div><div class="fg"><label class="fl">Categoria</label><select class="fs" id="f-categoria"><option>Honorários</option><option>Consulta</option><option>Êxito</option><option>Diligência</option><option>Acordo</option><option>Outro</option></select></div></div><div class="frow"><div class="fg"><label class="fl">Valor (R$) *</label><input class="fi" id="f-valor" type="number" step="0.01" required/></div><div class="fg"><label class="fl">Status</label><select class="fs" id="f-status"><option value="pendente">Pendente</option><option value="pago">Pago / Recebido</option></select></div></div><div class="frow"><div class="fg"><label class="fl">Data</label><input class="fi" id="f-data" type="date"/></div><div class="fg"><label class="fl">Vencimento</label><input class="fi" id="f-vencimento" type="date"/></div></div><div class="frow"><div class="fg"><label class="fl">Cliente</label><select class="fs" id="f-cliente"><option value="">Selecione</option>${cli}</select></div><div class="fg"><label class="fl">Forma de pagamento</label><select class="fs" id="f-formaPagamento"><option value="">Selecione</option><option>Pix</option><option>Transferência</option><option>Boleto</option><option>Dinheiro</option><option>Cartão</option><option>Cheque</option></select></div></div><div class="fg"><label class="fl">Processo vinculado</label><select class="fs" id="f-processo"><option value="">Selecione</option>${proc}</select></div><div class="fg"><label class="fl">Observações</label><textarea class="fta" id="f-observacoes"></textarea></div>`;},
+    getValues: ()=>({descricao:v('descricao'),tipo:v('tipo'),categoria:v('categoria'),valor:v('valor'),status:v('status'),data:v('data'),vencimento:v('vencimento'),cliente:v('cliente'),formaPagamento:v('formaPagamento'),processo:v('processo'),observacoes:v('observacoes')}),
+    setValues: d=>{sv('descricao',d.descricao);sv('tipo',d.tipo);sv('categoria',d.categoria);sv('valor',d.valor);sv('status',d.status);sv('data',d.data);sv('vencimento',d.vencimento);sv('cliente',d.cliente);sv('formaPagamento',d.formaPagamento);sv('processo',d.processo);sv('observacoes',d.observacoes);}
+  },
+  documento: {
+    title: id=>id?'Editar Documento':'Novo Documento', col:'documentos',
+    fields: ()=>{const cli=DATA.clientes.map(c=>`<option value="${c.nome}">${c.nome}</option>`).join('');const proc=DATA.processos.map(p=>`<option value="${p.titulo}">${p.titulo}</option>`).join('');return `<div class="fg"><label class="fl">Título *</label><input class="fi" id="f-titulo" required/></div><div class="frow"><div class="fg"><label class="fl">Tipo</label><select class="fs" id="f-tipo"><option>Petição inicial</option><option>Contestação</option><option>Recurso</option><option>Contrato</option><option>Procuração</option><option>Acordo</option><option>Laudo</option><option>Sentença</option><option>Acórdão</option><option>Certidão</option><option>Notificação</option><option>Outro</option></select></div><div class="fg"><label class="fl">Status</label><select class="fs" id="f-status"><option>Ativo</option><option>Arquivado</option><option>Rascunho</option></select></div></div><div class="frow"><div class="fg"><label class="fl">Cliente</label><select class="fs" id="f-cliente"><option value="">Selecione</option>${cli}</select></div><div class="fg"><label class="fl">Processo</label><select class="fs" id="f-processo"><option value="">Selecione</option>${proc}</select></div></div><div class="frow"><div class="fg"><label class="fl">Data</label><input class="fi" id="f-data" type="date"/></div><div class="fg"><label class="fl">Nº / Referência</label><input class="fi" id="f-numero"/></div></div><div class="fg"><label class="fl">Descrição</label><textarea class="fta" id="f-descricao"></textarea></div>`;},
+    getValues: ()=>({titulo:v('titulo'),tipo:v('tipo'),status:v('status'),cliente:v('cliente'),processo:v('processo'),data:v('data'),numero:v('numero'),descricao:v('descricao'),arquivos:[]}),
+    setValues: d=>{sv('titulo',d.titulo);sv('tipo',d.tipo);sv('status',d.status);sv('cliente',d.cliente);sv('processo',d.processo);sv('data',d.data);sv('numero',d.numero);sv('descricao',d.descricao);}
+  }
+};
+
+function openModal(type) { editingId=null; showModal(type,null); }
+function editItem(type,id) { editingId=id; showModal(type,id); }
+
+function showModal(type,id) {
+  const cfg=MODALS[type];
+  const data=id?DATA[colMap[type]]?.find(d=>d.id===id):null;
+  document.getElementById('modal-container').innerHTML=`
+    <div class="overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal modal-lg">
+        <div class="mhd"><h3>${cfg.title(id)}</h3><button class="btn btn-g btn-ic" onclick="closeModal()">✕</button></div>
+        <form onsubmit="submitModal(event,'${type}')">
+          <div class="mbody">${cfg.fields()}</div>
+          <div class="mfoot"><button type="button" class="btn btn-s" onclick="closeModal()">Cancelar</button><button type="submit" class="btn btn-p" id="modal-save-btn">${id?'Salvar alterações':'Cadastrar'}</button></div>
+        </form>
+      </div>
+    </div>`;
+  if(data) cfg.setValues(data);
+}
+
+function closeModal() { document.getElementById('modal-container').innerHTML=''; editingId=null; }
+
+async function submitModal(e,type) {
+  e.preventDefault();
+  const btn=document.getElementById('modal-save-btn');
+  btn.textContent='Salvando...';btn.disabled=true;
+  try {
+    const cfg=MODALS[type];
+    let data=cfg.getValues();
+    if (type==='documento'&&editingId) {
+      const existing=DATA.documentos.find(d=>d.id===editingId);
+      data.arquivos=existing?.arquivos||[];
+    }
+    await saveDoc(colMap[type],data,editingId);
+
+    // AUTO FINANCEIRO: se processo marcado como Acordo, cria lançamento automático
+    if (type==='processo' && data.status==='Acordo' && data.valorAcordo && parseFloat(data.valorAcordo)>0) {
+      const jaExiste = DATA.financeiro.some(f=>f.processoAcordoId===(editingId||'_novo_')&&f.categoria==='Acordo');
+      if (!jaExiste) {
+        const acordoData = {
+          descricao: `Acordo — ${data.titulo||data.numero||'Processo'}`,
+          tipo: 'receita',
+          categoria: 'Acordo',
+          valor: data.valorAcordo,
+          status: 'pendente',
+          data: data.dataAcordo||new Date().toISOString().split('T')[0],
+          cliente: data.cliente||'',
+          processo: data.titulo||'',
+          formaPagamento: '',
+          observacoes: `Lançamento gerado automaticamente ao marcar processo como Acordo.`,
+          processoAcordoId: editingId||''
+        };
+        await saveDoc('financeiro', acordoData, null);
+      }
+    }
+
+    closeModal();
+  } catch(err){ console.error(err);btn.textContent='Erro! Tente novamente';btn.disabled=false; }
+}
+
+async function deleteItem(col,id) { if(confirm('Deseja excluir este item?')) await delDoc(col,id); }
+
+function updateCatOptions() {
+  const tipo=document.getElementById('f-tipo')?.value;
+  const catEl=document.getElementById('f-categoria');
+  if(!catEl)return;
+  const opts=tipo==='despesa'?['Custas processuais','Diligência externa','Viagem','Material','Aluguel','Salários','Outro']:['Honorários','Consulta','Êxito','Diligência','Acordo','Outro'];
+  catEl.innerHTML=opts.map(o=>`<option>${o}</option>`).join('');
+}
+</script>
+</body>
+</html>
